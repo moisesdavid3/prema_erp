@@ -9,6 +9,12 @@
 export interface UpdateSupplierInput {
   /** @minLength 1 */
   name: string;
-  /** @minLength 1 */
-  newName: string;
+  /** Nuevo nombre si se renombra */
+  newName?: string;
+  /** Persona de contacto o referente (null para borrar) */
+  contact?: string | null;
+  /** Número de contacto (null para borrar) */
+  phone?: string | null;
+  /** Ciudad de origen (null para borrar) */
+  city?: string | null;
 }

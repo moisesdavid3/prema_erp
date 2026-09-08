@@ -85,7 +85,7 @@ paths:
     patch:
       operationId: updateSupplier
       tags: [suppliers]
-      summary: Rename a supplier across all its products
+      summary: Update a supplier (details and optional rename)
       requestBody:
         required: true
         content:
@@ -1027,6 +1027,18 @@ components:
           description: Código visible del proveedor (ej. PRV-001)
         name:
           type: string
+        contact:
+          type: string
+          nullable: true
+          description: Persona de contacto o referente
+        phone:
+          type: string
+          nullable: true
+          description: Número de contacto
+        city:
+          type: string
+          nullable: true
+          description: Ciudad de origen
       required: [id, code, name]
     SupplierInput:
       type: object
@@ -1034,6 +1046,15 @@ components:
         name:
           type: string
           minLength: 1
+        contact:
+          type: string
+          description: Persona de contacto o referente
+        phone:
+          type: string
+          description: Número de contacto
+        city:
+          type: string
+          description: Ciudad de origen
       required: [name]
     UpdateSupplierInput:
       type: object
@@ -1043,8 +1064,20 @@ components:
           minLength: 1
         newName:
           type: string
-          minLength: 1
-      required: [name, newName]
+          description: Nuevo nombre si se renombra
+        contact:
+          type: string
+          nullable: true
+          description: Persona de contacto o referente (null para borrar)
+        phone:
+          type: string
+          nullable: true
+          description: Número de contacto (null para borrar)
+        city:
+          type: string
+          nullable: true
+          description: Ciudad de origen (null para borrar)
+      required: [name]
     DeleteSupplierInput:
       type: object
       properties:

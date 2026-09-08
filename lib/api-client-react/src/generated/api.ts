@@ -403,7 +403,7 @@ export const getUpdateSupplierUrl = () => {
 }
 
 /**
- * @summary Rename a supplier across all its products
+ * @summary Update a supplier (details and optional rename)
  */
 export const updateSupplier = async (updateSupplierInput: UpdateSupplierInput, options?: Parameters<typeof customFetch>[1]): Promise<SupplierSummary> => {
 
@@ -452,7 +452,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateSupplierMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
 
     /**
- * @summary Rename a supplier across all its products
+ * @summary Update a supplier (details and optional rename)
  */
 export const useUpdateSupplier = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSupplier>>, TError,{data: BodyType<UpdateSupplierInput>}, TContext>, request?: SecondParameter<typeof customFetch>}

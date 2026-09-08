@@ -11,4 +11,10 @@ export interface SupplierSummary {
   /** Código visible del proveedor (ej. PRV-001) */
   code: string | null;
   name: string;
+  /** Persona de contacto o referente */
+  contact?: string | null;
+  /** Número de contacto */
+  phone?: string | null;
+  /** Ciudad de origen */
+  city?: string | null;
 }

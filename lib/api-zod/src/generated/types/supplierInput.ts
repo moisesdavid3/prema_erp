@@ -9,4 +9,10 @@
 export interface SupplierInput {
   /** @minLength 1 */
   name: string;
+  /** Persona de contacto o referente */
+  contact?: string;
+  /** Número de contacto */
+  phone?: string;
+  /** Ciudad de origen */
+  city?: string;
 }

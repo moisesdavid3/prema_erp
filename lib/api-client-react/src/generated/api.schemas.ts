@@ -41,18 +41,36 @@ export interface SupplierSummary {
   /** Código visible del proveedor (ej. PRV-001) */
   code: string | null;
   name: string;
+  /** Persona de contacto o referente */
+  contact?: string | null;
+  /** Número de contacto */
+  phone?: string | null;
+  /** Ciudad de origen */
+  city?: string | null;
 }
 
 export interface SupplierInput {
   /** @minLength 1 */
   name: string;
+  /** Persona de contacto o referente */
+  contact?: string;
+  /** Número de contacto */
+  phone?: string;
+  /** Ciudad de origen */
+  city?: string;
 }
 
 export interface UpdateSupplierInput {
   /** @minLength 1 */
   name: string;
-  /** @minLength 1 */
-  newName: string;
+  /** Nuevo nombre si se renombra */
+  newName?: string;
+  /** Persona de contacto o referente (null para borrar) */
+  contact?: string | null;
+  /** Número de contacto (null para borrar) */
+  phone?: string | null;
+  /** Ciudad de origen (null para borrar) */
+  city?: string | null;
 }
 
 export interface DeleteSupplierInput {

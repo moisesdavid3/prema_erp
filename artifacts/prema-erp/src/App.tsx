@@ -269,7 +269,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     { href: '/app', label: 'Inicio', icon: HomeIcon },
     { href: '/app/productos', label: 'Inventario', icon: Box },
     { href: '/app/venta', label: 'Registrar venta', icon: ShoppingCart },
-    { href: '/app/compras', label: 'Compras', icon: ShoppingBasket },
+    { label: 'Compras', icon: ShoppingBasket, children: [{ href: '/app/compras', label: 'Compras', icon: ShoppingBasket }, { href: '/app/proveedores', label: 'Proveedores', icon: Truck }] },
     { label: 'Cartera', icon: CreditCard, children: [{ href: '/app/cartera', label: 'Cartera', icon: CreditCard }, { href: '/app/clientes', label: 'Clientes', icon: Users }] },
     { label: 'Reportes', icon: BarChart3, children: [{ href: '/app/reportes/ventas', label: 'Reporte de ventas', icon: ReceiptText }, { href: '/app/reportes/bajas', label: 'Bajas de inventario', icon: Box }] },
   ];
@@ -1825,6 +1825,107 @@ function ClientsPage() {
   );
 }
 
+function SuppliersPage() {
+  const suppliers = useListSuppliers();
+  const create = useCreateSupplier();
+  const update = useUpdateSupplier();
+  const del = useDeleteSupplier();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<SupplierSummary | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [error, setError] = useState('');
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: getListSuppliersQueryKey() });
+    qc.invalidateQueries({ queryKey: getListProductsQueryKey() });
+  };
+
+  const startEdit = (s: SupplierSummary) => { setEditing(s); setName(s.name); setContact(s.contact || ''); setPhone(s.phone || ''); setCity(s.city || ''); setShowForm(true); setError(''); };
+  const startNew = () => { setEditing(null); setName(''); setContact(''); setPhone(''); setCity(''); setShowForm(true); setError(''); };
+  const submitForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = name.trim();
+    if (!n) { setError('Escribe el nombre del proveedor.'); return; }
+    setError('');
+    if (editing) {
+      update.mutate({ data: { name: editing.name, newName: n !== editing.name ? n : undefined, contact: contact.trim() || null, phone: phone.trim() || null, city: city.trim() || null } }, {
+        onSuccess: () => { invalidate(); setShowForm(false); setEditing(null); },
+        onError: () => setError('No se pudo guardar.'),
+      });
+    } else {
+      create.mutate({ data: { name: n, contact: contact.trim() || undefined, phone: phone.trim() || undefined, city: city.trim() || undefined } }, {
+        onSuccess: () => { invalidate(); setShowForm(false); setName(''); setContact(''); setPhone(''); setCity(''); },
+        onError: () => setError('No se pudo crear.'),
+      });
+    }
+  };
+
+  return (
+    <Shell>
+      <PageHeading eyebrow="Compras" title="Proveedores" description="Gestiona tus proveedores: información de contacto y ciudad de origen." action={!showForm ? <Button onClick={startNew} data-testid="button-new-supplier-page"><Plus size={14} /> Nuevo proveedor</Button> : undefined} />
+      {showForm ? (
+        <div className="mx-auto max-w-lg rounded-2xl border bg-[hsl(var(--card))] p-6">
+          <p className="font-mono-app text-[10px] uppercase tracking-[.16em] text-[hsl(var(--primary))]">{editing ? 'Editar' : 'Nuevo'} proveedor</p>
+          <form onSubmit={submitForm} className="mt-4 grid gap-4">
+            <Field label="Nombre *" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del proveedor" autoFocus data-testid="input-supplier-page-name" />
+            <Field label="Contacto" value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Persona de contacto" data-testid="input-supplier-page-contact" />
+            <Field label="Número de contacto" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Opcional" data-testid="input-supplier-page-phone" />
+            <Field label="Ciudad de origen" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Opcional" data-testid="input-supplier-page-city" />
+            {error && <p className="rounded-xl bg-[hsl(var(--destructive)/.1)] p-3 text-sm text-[hsl(var(--destructive))]" data-testid="status-supplier-page-error">{error}</p>}
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="ghost" onClick={() => { setShowForm(false); setEditing(null); }}>Cancelar</Button>
+              <Button type="submit" disabled={create.isPending || update.isPending} data-testid="button-submit-supplier-page">{editing ? 'Guardar' : 'Crear'}</Button>
+            </div>
+          </form>
+        </div>
+      ) : suppliers.isLoading ? (
+        <div className="grid gap-3">{[1, 2, 3].map((n) => <div key={n} className="h-16 animate-pulse rounded-2xl bg-[hsl(var(--muted))]" />)}</div>
+      ) : (suppliers.data || []).length === 0 ? (
+        <StatusMessage type="empty" text="No hay proveedores registrados." />
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border bg-[hsl(var(--card))]">
+          <table className="w-full text-sm" data-testid="table-suppliers">
+            <thead>
+              <tr className="border-b text-left text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                <th className="px-4 py-3">Nombre</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Contacto</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Número de contacto</th>
+                <th className="px-4 py-3 hidden md:table-cell">Ciudad de origen</th>
+                <th className="px-4 py-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...(suppliers.data || [])].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })).map((s) => (
+                <tr key={s.id ?? s.name} className="border-b last:border-0 hover:bg-[hsl(var(--muted)/.3)]" data-testid={`supplier-row-${s.name}`}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[hsl(var(--secondary))] px-2 font-mono-app text-xs font-bold text-[hsl(var(--primary))]">{s.code || s.name.charAt(0).toUpperCase()}</span>
+                      <span className="font-semibold">{s.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[hsl(var(--muted-foreground))] hidden sm:table-cell">{s.contact || '—'}</td>
+                  <td className="px-4 py-3 text-[hsl(var(--muted-foreground))] hidden sm:table-cell">{s.phone || '—'}</td>
+                  <td className="px-4 py-3 text-[hsl(var(--muted-foreground))] hidden md:table-cell">{s.city || '—'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Button variant="secondary" className="min-h-[28px] px-2 text-xs" onClick={() => startEdit(s)} data-testid={`button-edit-supplier-page-${s.name}`}>Editar</Button>
+                      <Button variant="danger" className="min-h-[28px] px-2 text-xs" onClick={() => { if (confirm(`¿Eliminar el proveedor ${s.name}? Sus productos quedarán sin proveedor.`)) del.mutate({ data: { name: s.name } }, { onSuccess: invalidate, onError: () => setError('No se pudo eliminar.') }); }} data-testid={`button-delete-supplier-page-${s.name}`}>Eliminar</Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Shell>
+  );
+}
+
 function Protected({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();
   if (!isLoaded) return <div className="grid min-h-[50vh] place-items-center text-sm text-[hsl(var(--muted-foreground))]">Cargando…</div>;
@@ -1887,7 +1988,7 @@ function SignInPage() { return <AuthCard mode="sign-in" />; }
 function SignUpPage() { return <AuthCard mode="sign-up" />; }
 
 function Routes() {
-  return <Switch><Route path="/" component={SignInPage} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route path="/app"><Protected><Dashboard /></Protected></Route><Route path="/app/productos"><Protected><Products /></Protected></Route><Route path="/app/venta"><Protected><SalePage /></Protected></Route><Route path="/app/compras"><Protected><Purchases /></Protected></Route><Route path="/app/cartera"><Protected><CarteraPage /></Protected></Route><Route path="/app/clientes"><Protected><ClientsPage /></Protected></Route><Route path="/app/reportes"><Redirect to="/app/reportes/ventas" /></Route><Route path="/app/reportes/ventas"><Protected><SalesReport /></Protected></Route><Route path="/app/reportes/bajas"><Protected><StockoutsReport /></Protected></Route><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={SignInPage} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route path="/app"><Protected><Dashboard /></Protected></Route><Route path="/app/productos"><Protected><Products /></Protected></Route><Route path="/app/venta"><Protected><SalePage /></Protected></Route><Route path="/app/compras"><Protected><Purchases /></Protected></Route><Route path="/app/proveedores"><Protected><SuppliersPage /></Protected></Route><Route path="/app/cartera"><Protected><CarteraPage /></Protected></Route><Route path="/app/clientes"><Protected><ClientsPage /></Protected></Route><Route path="/app/reportes"><Redirect to="/app/reportes/ventas" /></Route><Route path="/app/reportes/ventas"><Protected><SalesReport /></Protected></Route><Route path="/app/reportes/bajas"><Protected><StockoutsReport /></Protected></Route><Route component={NotFound} /></Switch>;
 }
 
 function App() {

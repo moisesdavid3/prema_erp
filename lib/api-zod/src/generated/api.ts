@@ -37,7 +37,10 @@ export const ListCompaniesResponse = zod.array(ListCompaniesResponseItem)
 export const ListSuppliersResponseItem = zod.object({
   "id": zod.number().nullable(),
   "code": zod.string().nullable().describe('Código visible del proveedor (ej. PRV-001)'),
-  "name": zod.string()
+  "name": zod.string(),
+  "contact": zod.string().nullish().describe('Persona de contacto o referente'),
+  "phone": zod.string().nullish().describe('Número de contacto'),
+  "city": zod.string().nullish().describe('Ciudad de origen')
 })
 export const ListSuppliersResponse = zod.array(ListSuppliersResponseItem)
 
@@ -49,32 +52,43 @@ export const ListSuppliersResponse = zod.array(ListSuppliersResponseItem)
 
 
 export const CreateSupplierBody = zod.object({
-  "name": zod.string().min(1)
+  "name": zod.string().min(1),
+  "contact": zod.string().optional().describe('Persona de contacto o referente'),
+  "phone": zod.string().optional().describe('Número de contacto'),
+  "city": zod.string().optional().describe('Ciudad de origen')
 })
 
 export const CreateSupplierResponse = zod.object({
   "id": zod.number().nullable(),
   "code": zod.string().nullable().describe('Código visible del proveedor (ej. PRV-001)'),
-  "name": zod.string()
+  "name": zod.string(),
+  "contact": zod.string().nullish().describe('Persona de contacto o referente'),
+  "phone": zod.string().nullish().describe('Número de contacto'),
+  "city": zod.string().nullish().describe('Ciudad de origen')
 })
 
 
 /**
- * @summary Rename a supplier across all its products
+ * @summary Update a supplier (details and optional rename)
  */
-
 
 
 
 export const UpdateSupplierBody = zod.object({
   "name": zod.string().min(1),
-  "newName": zod.string().min(1)
+  "newName": zod.string().optional().describe('Nuevo nombre si se renombra'),
+  "contact": zod.string().nullish().describe('Persona de contacto o referente (null para borrar)'),
+  "phone": zod.string().nullish().describe('Número de contacto (null para borrar)'),
+  "city": zod.string().nullish().describe('Ciudad de origen (null para borrar)')
 })
 
 export const UpdateSupplierResponse = zod.object({
   "id": zod.number().nullable(),
   "code": zod.string().nullable().describe('Código visible del proveedor (ej. PRV-001)'),
-  "name": zod.string()
+  "name": zod.string(),
+  "contact": zod.string().nullish().describe('Persona de contacto o referente'),
+  "phone": zod.string().nullish().describe('Número de contacto'),
+  "city": zod.string().nullish().describe('Ciudad de origen')
 })
 
 
