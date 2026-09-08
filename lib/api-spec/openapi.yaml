@@ -664,6 +664,13 @@ paths:
             type: string
             enum: [all, low, empty]
             default: all
+        - name: asOf
+          in: query
+          required: false
+          description: Fecha de corte en formato YYYY-MM-DD. Devuelve el inventario reconstruido al cierre de esa fecha.
+          schema:
+            type: string
+            format: date
       responses:
         "200":
           description: Inventory report
@@ -1151,6 +1158,10 @@ components:
         minimumStock:
           type: number
           minimum: 0
+        initialStockDate:
+          type: string
+          format: date
+          description: Fecha del inventario inicial (YYYY-MM-DD). Si se omite usa la fecha y hora actual.
       required: [name, cost, salePrice, initialStock]
     ProductUpdate:
       type: object
@@ -1179,6 +1190,10 @@ components:
           type: number
           minimum: 0
           description: Corrige la existencia actual del producto
+        stockDate:
+          type: string
+          format: date
+          description: Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual.
       minProperties: 1
     InventoryInput:
       type: object
@@ -1188,6 +1203,10 @@ components:
           minimum: 1
         note:
           type: string
+        date:
+          type: string
+          format: date
+          description: Fecha de la entrada de inventario (YYYY-MM-DD). Si se omite usa la fecha y hora actual.
       required: [quantity]
     SaleItemInput:
       type: object

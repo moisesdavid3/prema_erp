@@ -21,4 +21,6 @@ export interface ProductInput {
   initialStock: number;
   /** @minimum 0 */
   minimumStock?: number;
+  /** Fecha del inventario inicial (YYYY-MM-DD). Si se omite usa la fecha y hora actual. */
+  initialStockDate?: Date;
 }

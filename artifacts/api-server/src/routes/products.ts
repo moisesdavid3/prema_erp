@@ -49,6 +49,7 @@ router.post("/products", async (req, res): Promise<void> => {
   const supplierName = parsed.data.supplier?.trim() || null;
   const supplierId = await resolveSupplier(req.companyId!, supplierName);
   const code = await nextProductCode(req.companyId!);
+  const initialStockDate = parsed.data.initialStockDate ?? new Date();
   const [product] = await getDb().transaction(async (tx) => {
     const [created] = await tx.insert(productsTable).values({
       companyId: req.companyId!,
@@ -74,6 +75,7 @@ router.post("/products", async (req, res): Promise<void> => {
       stockBefore: 0,
       stockAfter: created.stock,
       note: "Inventario inicial",
+      createdAt: initialStockDate,
     });
     return [created];
   });
@@ -125,6 +127,7 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
         stockBefore: current.stock,
         stockAfter: nextStock,
         note: "Ajuste manual de existencia",
+        createdAt: parsed.data.stockDate ?? new Date(),
       });
     }
     return row;
@@ -160,6 +163,7 @@ router.post("/products/:id/inventory", async (req, res): Promise<void> => {
       stockBefore: product.stock,
       stockAfter: updated.stock,
       note: parsed.data.note?.trim() || null,
+      createdAt: parsed.data.date ?? new Date(),
     });
     return updated;
   });

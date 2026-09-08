@@ -234,7 +234,8 @@ export const CreateProductBody = zod.object({
   "cost": zod.number().min(createProductBodyCostMin),
   "salePrice": zod.number().min(createProductBodySalePriceMin),
   "initialStock": zod.number().min(createProductBodyInitialStockMin),
-  "minimumStock": zod.number().min(createProductBodyMinimumStockMin).optional()
+  "minimumStock": zod.number().min(createProductBodyMinimumStockMin).optional(),
+  "initialStockDate": zod.coerce.date().optional().describe('Fecha del inventario inicial (YYYY-MM-DD). Si se omite usa la fecha y hora actual.')
 })
 
 export const CreateProductResponse = zod.object({
@@ -286,7 +287,8 @@ export const UpdateProductBody = zod.object({
   "cost": zod.number().min(updateProductBodyCostMin).optional(),
   "salePrice": zod.number().min(updateProductBodySalePriceMin).optional(),
   "minimumStock": zod.number().min(updateProductBodyMinimumStockMin).optional(),
-  "stock": zod.number().min(updateProductBodyStockMin).optional().describe('Corrige la existencia actual del producto')
+  "stock": zod.number().min(updateProductBodyStockMin).optional().describe('Corrige la existencia actual del producto'),
+  "stockDate": zod.coerce.date().optional().describe('Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual.')
 })
 
 export const UpdateProductResponse = zod.object({
@@ -336,7 +338,8 @@ export const AddInventoryParams = zod.object({
 
 export const AddInventoryBody = zod.object({
   "quantity": zod.number().min(1),
-  "note": zod.string().optional()
+  "note": zod.string().optional(),
+  "date": zod.coerce.date().optional().describe('Fecha de la entrada de inventario (YYYY-MM-DD). Si se omite usa la fecha y hora actual.')
 })
 
 export const AddInventoryResponse = zod.object({
@@ -793,7 +796,8 @@ export const DeletePurchaseResponse = zod.void()
 export const getInventoryReportQueryFilterDefault = `all`;
 
 export const GetInventoryReportQueryParams = zod.object({
-  "filter": zod.enum(['all', 'low', 'empty']).default(getInventoryReportQueryFilterDefault)
+  "filter": zod.enum(['all', 'low', 'empty']).default(getInventoryReportQueryFilterDefault),
+  "asOf": zod.date().optional().describe('Fecha de corte en formato YYYY-MM-DD. Devuelve el inventario reconstruido al cierre de esa fecha.')
 })
 
 export const GetInventoryReportResponse = zod.object({

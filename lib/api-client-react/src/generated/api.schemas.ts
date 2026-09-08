@@ -113,6 +113,8 @@ export interface ProductInput {
   initialStock: number;
   /** @minimum 0 */
   minimumStock?: number;
+  /** Fecha del inventario inicial (YYYY-MM-DD). Si se omite usa la fecha y hora actual. */
+  initialStockDate?: string;
 }
 
 export interface ProductUpdate {
@@ -133,12 +135,16 @@ export interface ProductUpdate {
      * @minimum 0
      */
   stock?: number;
+  /** Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual. */
+  stockDate?: string;
 }
 
 export interface InventoryInput {
   /** @minimum 1 */
   quantity: number;
   note?: string;
+  /** Fecha de la entrada de inventario (YYYY-MM-DD). Si se omite usa la fecha y hora actual. */
+  date?: string;
 }
 
 export interface SaleItemInput {
@@ -579,6 +585,10 @@ export const ListPurchasesPeriod = {
 
 export type GetInventoryReportParams = {
 filter?: GetInventoryReportFilter;
+/**
+ * Fecha de corte en formato YYYY-MM-DD. Devuelve el inventario reconstruido al cierre de esa fecha.
+ */
+asOf?: string;
 };
 
 export type GetInventoryReportFilter = typeof GetInventoryReportFilter[keyof typeof GetInventoryReportFilter];

@@ -24,4 +24,6 @@ export interface ProductUpdate {
      * @minimum 0
      */
   stock?: number;
+  /** Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual. */
+  stockDate?: Date;
 }

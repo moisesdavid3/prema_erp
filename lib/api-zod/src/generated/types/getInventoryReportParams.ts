@@ -9,4 +9,8 @@ import type { GetInventoryReportFilter } from './getInventoryReportFilter';
 
 export type GetInventoryReportParams = {
 filter?: GetInventoryReportFilter;
+/**
+ * Fecha de corte en formato YYYY-MM-DD. Devuelve el inventario reconstruido al cierre de esa fecha.
+ */
+asOf?: Date;
 };

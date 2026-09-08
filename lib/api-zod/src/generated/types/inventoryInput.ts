@@ -10,4 +10,6 @@ export interface InventoryInput {
   /** @minimum 1 */
   quantity: number;
   note?: string;
+  /** Fecha de la entrada de inventario (YYYY-MM-DD). Si se omite usa la fecha y hora actual. */
+  date?: Date;
 }
