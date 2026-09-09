@@ -289,7 +289,6 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="md:pl-[264px]">
       <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b bg-[hsl(var(--background)/.88)] px-5 backdrop-blur-md sm:px-8">
         <button className="flex items-center gap-2 rounded-lg p-2 font-bold text-[hsl(var(--muted-foreground))] md:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={22} /><span>Menú</span></button>
-        <div className="hidden items-center gap-2 text-sm text-[hsl(var(--muted-foreground))] md:flex"><span className="h-2 w-2 rounded-full bg-[hsl(var(--accent-foreground))]" /> Todo listo para hoy</div>
         <div className="ml-auto flex items-center gap-2 text-xs font-semibold text-[hsl(var(--muted-foreground))]"><History size={15} /> {new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</div>
       </header>
       <main className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:px-12">{children}</main>
