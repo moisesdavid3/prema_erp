@@ -64,55 +64,6 @@ function SupplierField({ value, onChange, testid, allowNew = true }: { value: st
   return <div className="grid gap-2"><label htmlFor={testid} className="text-sm font-semibold">Proveedor</label><div className="flex items-center gap-2"><select id={testid} value={value} onChange={(e) => onChange(e.target.value)} className="h-11 w-full rounded-xl border bg-[hsl(var(--card))] px-3 text-sm font-semibold outline-none focus:border-[hsl(var(--primary))]" data-testid={testid}><option value="">Sin proveedor</option>{options.map((s) => <option key={s} value={s}>{labelFor(s)}</option>)}</select>{allowNew && !creating && <button type="button" onClick={() => setCreating(true)} className="shrink-0 rounded-xl border border-dashed px-3 py-2.5 text-sm font-bold text-[hsl(var(--primary))] hover:bg-[hsl(var(--secondary))]" data-testid={`button-new-${testid}`}>Nuevo</button>}</div>{allowNew && creating && <form onSubmit={saveNew} className="flex items-center gap-2"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del proveedor" autoFocus className="h-10 w-full rounded-xl border bg-[hsl(var(--card))] px-3 text-sm font-semibold outline-none focus:border-[hsl(var(--primary))]" data-testid={`input-new-${testid}`} /><Button type="submit" disabled={create.isPending} className="h-10 px-3 text-sm" data-testid={`button-save-${testid}`}>{create.isPending ? 'Guardando…' : 'Guardar'}</Button><button type="button" onClick={() => { setCreating(false); setError(''); }} className="rounded-lg p-2 text-sm font-semibold text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]" data-testid={`button-cancel-${testid}`}>Cancelar</button></form>}{allowNew && error && <p className="text-xs text-[hsl(var(--destructive))]" data-testid={`status-${testid}-error`}>{error}</p>}</div>;
 }
 
-function ManageSuppliersModal({ onClose }: { onClose: () => void }) {
-  const qc = useQueryClient();
-  const suppliers = useListSuppliers();
-  const create = useCreateSupplier();
-  const update = useUpdateSupplier();
-  const del = useDeleteSupplier();
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const [confirming, setConfirming] = useState<SupplierSummary | null>(null);
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: getListSuppliersQueryKey() });
-    qc.invalidateQueries({ queryKey: getListProductsQueryKey() });
-    qc.invalidateQueries({ queryKey: getListPurchasesQueryKey() });
-  };
-  const submitCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    const n = name.trim();
-    if (!n) { setError('Escribe el nombre del proveedor.'); return; }
-    setError('');
-    create.mutate({ data: { name: n } }, {
-      onSuccess: () => { invalidate(); setName(''); setCreating(false); },
-      onError: (err: any) => setError(err?.response?.data?.error || 'No se pudo crear el proveedor.'),
-    });
-  };
-  const submitEdit = (e: React.FormEvent, currentName: string) => {
-    e.preventDefault();
-    const n = editValue.trim();
-    if (!n) { setError('Escribe el nombre del proveedor.'); return; }
-    setError('');
-    update.mutate({ data: { name: currentName, newName: n } }, {
-      onSuccess: () => { invalidate(); setEditing(null); setEditValue(''); },
-      onError: (err: any) => setError(err?.response?.data?.error || 'No se pudo actualizar el proveedor.'),
-    });
-  };
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-[hsl(var(--foreground)/.45)] p-0 sm:grid sm:place-items-center sm:p-4" role="dialog" aria-modal="true"><div className="flex max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col rounded-t-2xl sm:rounded-2xl border bg-[hsl(var(--card))] p-4 sm:p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="font-mono-app text-[10px] uppercase tracking-[.16em] text-[hsl(var(--primary))]">Compras</p><h2 className="mt-1 font-display text-2xl sm:text-3xl font-bold">Proveedores</h2></div><button type="button" onClick={onClose} className="rounded-lg p-2 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]" data-testid="button-close-new-supplier"><X size={20} /></button></div>
-    {!creating ? <button type="button" onClick={() => setCreating(true)} className="mt-4 w-full rounded-xl border border-dashed px-3 py-3 text-sm font-bold text-[hsl(var(--primary))] hover:bg-[hsl(var(--secondary))]" data-testid="button-create-supplier"><Plus size={16} className="mr-1 inline" /> Nuevo proveedor</button> : <form onSubmit={submitCreate} className="mt-4 grid gap-2"><Field label="Nombre del proveedor" value={name} onChange={(e) => setName(e.target.value)} placeholder="Por ejemplo: Bioessens" autoFocus data-testid="input-new-supplier-name" /><div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => { setCreating(false); setError(''); }} data-testid="button-cancel-create-supplier">Cancelar</Button><Button type="submit" disabled={create.isPending} data-testid="button-save-new-supplier">{create.isPending ? 'Guardando…' : 'Guardar'}</Button></div></form>}
-    {error && <p className="mt-2 text-sm text-[hsl(var(--destructive))]" data-testid="status-new-supplier-error">{error}</p>}
-    <div className="mt-3 flex-1 overflow-auto min-h-0">
-      {suppliers.isLoading ? <div className="grid gap-2">{[1, 2, 3].map((n) => <div key={n} className="h-11 animate-pulse rounded-xl bg-[hsl(var(--muted))]" />)}</div> : suppliers.isError ? <p className="py-6 text-center text-sm text-[hsl(var(--muted-foreground))]">No pudimos cargar los proveedores.</p> : !suppliers.data?.length ? <p className="py-6 text-center text-sm text-[hsl(var(--muted-foreground))]">Aún no hay proveedores. Crea el primero.</p> : <ul className="divide-y divide-[hsl(var(--muted))]">{suppliers.data.map((s, i) => <li key={s.id ?? `s-${i}`} className="py-2.5">{editing === s.name ? <form onSubmit={(e) => submitEdit(e, s.name)} className="grid gap-2"><input value={editValue} onChange={(e) => setEditValue(e.target.value)} autoFocus placeholder="Nuevo nombre del proveedor" className="h-10 w-full rounded-xl border bg-[hsl(var(--card))] px-3 text-sm font-semibold outline-none focus:border-[hsl(var(--primary))]" data-testid={`input-edit-supplier-${s.name}`} /><div className="flex items-center justify-end gap-2"><button type="button" onClick={() => { setEditing(null); setEditValue(''); }} className="rounded-lg p-2 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]" data-testid={`button-cancel-edit-supplier-${s.name}`}><X size={16} /></button><Button type="submit" disabled={update.isPending} className="h-10 px-3 text-sm" data-testid={`button-save-edit-supplier-${s.name}`}>{update.isPending ? '…' : 'Guardar'}</Button></div></form> : <div className="flex items-center gap-2"><span className="flex-1 truncate text-sm font-semibold">{s.code ? <><span className="font-mono-app text-[11px] font-bold text-[hsl(var(--primary))]">{s.code}</span>{' '}</> : null}{s.name}</span><div className="flex shrink-0 gap-1.5"><Button type="button" variant="secondary" onClick={() => { setEditing(s.name); setEditValue(s.name); }} className="h-9 min-w-0 px-2 sm:px-3 text-xs sm:text-sm" data-testid={`button-edit-supplier-${s.name}`}><Pencil size={14} /> <span className="hidden sm:inline">Editar</span></Button><Button type="button" variant="danger" onClick={() => setConfirming(s)} className="h-9 min-w-0 px-2 sm:px-3 text-xs sm:text-sm" data-testid={`button-delete-supplier-${s.name}`}><Trash2 size={14} /> <span className="hidden sm:inline">Eliminar</span></Button></div></div>}</li>)}</ul>}
-    </div>
-    <div className="mt-4 flex justify-end"><Button type="button" variant="ghost" onClick={onClose} data-testid="button-cancel-new-supplier">Cerrar</Button></div>
-  </div>
-  {confirming && <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[hsl(var(--foreground)/.45)] p-0 sm:grid sm:place-items-center sm:p-4" role="dialog" aria-modal="true"><div className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl border bg-[hsl(var(--card))] p-4 sm:p-6 shadow-2xl"><h3 className="font-display text-xl sm:text-2xl font-bold">¿Eliminar proveedor?</h3><p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Se eliminará <b>{confirming.name}</b> y todos sus productos quedarán sin proveedor. Esta acción no se puede deshacer.</p><div className="mt-5 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => setConfirming(null)} data-testid="button-cancel-delete-supplier">Cancelar</Button><Button type="button" variant="danger" onClick={() => del.mutate({ data: { name: confirming.name } }, { onSuccess: () => { invalidate(); setConfirming(null); }, onError: () => setConfirming(null) })} disabled={del.isPending} data-testid="button-confirm-delete-supplier">{del.isPending ? 'Eliminando…' : 'Eliminar'}</Button></div></div></div>}
-  </div>;
-}
-
 function crc32(data: Uint8Array): number {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -611,13 +562,13 @@ function StockoutModal({ onClose }: { onClose: () => void }) {
 function Purchases() {
   const [period, setPeriod] = useState<'today' | 'last7' | 'thisMonth' | 'previousMonth' | 'all'>('all');
   const purchases = useListPurchases({ period }); const qc = useQueryClient(); const del = useDeletePurchase();
-  const [modal, setModal] = useState(false); const [importModal, setImportModal] = useState(false); const [supplierModal, setSupplierModal] = useState(false); const [expanded, setExpanded] = useState<number | null>(null); const [confirm, setConfirm] = useState<Purchase | null>(null);
+  const [modal, setModal] = useState(false); const [importModal, setImportModal] = useState(false); const [expanded, setExpanded] = useState<number | null>(null); const [confirm, setConfirm] = useState<Purchase | null>(null);
   const totalSpent = (purchases.data || []).reduce((sum, p) => sum + p.total, 0);
   const totalUnits = (purchases.data || []).reduce((sum, p) => sum + p.totalItems, 0);
-  return <Shell><PageHeading eyebrow="Surtir inventario" title="Compras" description="Registra las entradas de mercancía y el stock se actualiza solo." action={<div className="flex items-center justify-end gap-2"><Button variant="secondary" onClick={() => setImportModal(true)} data-testid="button-import-purchases"><Upload size={16} /> Importar CSV</Button><Button variant="secondary" onClick={() => setSupplierModal(true)} data-testid="button-new-supplier-purchases"><PackagePlus size={16} /> Proveedores</Button><Button onClick={() => setModal(true)} data-testid="button-new-purchase"><Plus size={16} /> Nueva compra</Button></div>} />
+  return <Shell><PageHeading eyebrow="Surtir inventario" title="Compras" description="Registra las entradas de mercancía y el stock se actualiza solo." action={<div className="flex items-center justify-end gap-2"><Link href="/app/proveedores" className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border bg-[hsl(var(--card))] px-4 text-sm font-bold text-[hsl(var(--foreground))] shadow-sm" data-testid="button-new-supplier-purchases"><PackagePlus size={16} /> Proveedores</Link><Button onClick={() => setModal(true)} data-testid="button-new-purchase"><Plus size={16} /> Nueva compra</Button></div>} />
     <div className="mb-6 flex flex-col gap-3 rounded-2xl border bg-[hsl(var(--card))] p-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3 text-sm"><span className="font-semibold text-[hsl(var(--muted-foreground))]">Invertido:</span><strong className="font-mono-app text-lg">{money(totalSpent)}</strong><span className="hidden h-5 w-px bg-[hsl(var(--muted))] sm:block" /><span className="text-[hsl(var(--muted-foreground))]">{totalUnits} unidades entradas</span></div><label className="relative"><select value={period} onChange={(e) => setPeriod(e.target.value as typeof period)} className="h-10 w-full appearance-none rounded-lg border bg-[hsl(var(--background))] px-3 pr-8 text-sm font-bold outline-none sm:w-48" data-testid="select-purchase-period"><option value="today">Hoy</option><option value="last7">Últimos 7 días</option><option value="thisMonth">Este mes</option><option value="previousMonth">Mes pasado</option><option value="all">Todo el tiempo</option></select><ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-3" /></label></div>
     {purchases.isLoading ? <div className="grid gap-3">{[1, 2, 3].map((n) => <div key={n} className="h-28 animate-pulse rounded-2xl bg-[hsl(var(--muted))]" />)}</div> : purchases.isError ? <StatusMessage text="No pudimos cargar las compras." onRetry={() => purchases.refetch()} /> : !purchases.data?.length ? <StatusMessage type="empty" text="Todavía no hay compras registradas. Crea la primera para surtir tu inventario." /> : <div className="grid gap-3">{purchases.data.map((purchase) => <div key={purchase.id} className="overflow-hidden rounded-2xl border bg-[hsl(var(--card))]" data-testid={`purchase-${purchase.id}`}><div className="flex flex-wrap items-center gap-3 px-5 py-4"><button type="button" onClick={() => setExpanded(expanded === purchase.id ? null : purchase.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[hsl(var(--secondary))] text-[hsl(var(--primary))]"><ShoppingBasket size={18} /></span><span className="min-w-0 flex-1"><span className="block truncate font-bold">{purchase.supplier || 'Compra sin proveedor'}</span><span className="block text-xs text-[hsl(var(--muted-foreground))]">{dateLabel(purchase.date)}{purchase.invoiceNumber ? ` · Factura ${purchase.invoiceNumber}` : ''} · {purchase.totalItems} unidades</span></span><ChevronDown size={16} className={`shrink-0 text-[hsl(var(--muted-foreground))] transition-transform ${expanded === purchase.id ? 'rotate-180' : ''}`} /></button><span className="font-mono-app text-lg font-bold">{money(purchase.total)}</span><button type="button" onClick={() => setConfirm(purchase)} className="rounded-lg p-2 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--destructive)/.1)] hover:text-[hsl(var(--destructive))]" title="Anular compra" data-testid={`button-delete-purchase-${purchase.id}`}><Trash2 size={16} /></button></div>{expanded === purchase.id && <div className="border-t bg-[hsl(var(--muted)/.3)] px-5 py-3">{purchase.items.map((item) => <div key={item.productId} className="flex items-center justify-between gap-3 py-1.5 text-sm"><span className="min-w-0 flex-1 truncate text-[hsl(var(--muted-foreground))]">{item.quantity} × {item.productCode || ''} {item.productName}</span><span className="font-mono-app font-semibold">{money(item.subtotal)}</span></div>)}</div>}</div>)}</div>}
-    {modal && <PurchaseModal onClose={() => setModal(false)} />}{importModal && <ImportModal onClose={() => setImportModal(false)} />}{supplierModal && <ManageSuppliersModal onClose={() => setSupplierModal(false)} />}
+    {modal && <PurchaseModal onClose={() => setModal(false)} />}{importModal && <ImportModal onClose={() => setImportModal(false)} />}
     {confirm && <div className="fixed inset-0 z-[60] grid place-items-center bg-[hsl(var(--foreground)/.45)] p-4" role="dialog" aria-modal="true" data-testid="modal-confirm-delete-purchase"><div className="w-full max-w-sm rounded-2xl border bg-[hsl(var(--card))] p-6 shadow-2xl"><h3 className="font-display text-2xl font-bold">¿Anular esta compra?</h3><p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Se restará el inventario que entró con esta compra y desaparecerá del historial.</p><div className="mt-7 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => setConfirm(null)} data-testid="button-cancel-delete-purchase">Cancelar</Button><Button type="button" variant="danger" onClick={() => del.mutate({ id: confirm.id }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getListPurchasesQueryKey() }); qc.invalidateQueries({ queryKey: getListProductsQueryKey() }); qc.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); setConfirm(null); }, onError: () => setConfirm(null) })} disabled={del.isPending} data-testid="button-confirm-delete-purchase">{del.isPending ? 'Anulando…' : 'Anular'}</Button></div></div></div>}
   </Shell>;
 }
@@ -1005,7 +956,6 @@ function CarteraPage() {
   const [detailClient, setDetailClient] = useState<{ name: string; code: string; phone: string; sales: Sale[]; manualCredits: ManualCredit[]; payments: Map<number, number> } | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
   const [newCreditModal, setNewCreditModal] = useState(false);
-  const [clientsModal, setClientsModal] = useState(false);
   const [sortKey, setSortKey] = useState<'name' | 'total' | 'paid' | 'remaining' | 'lastActivity'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [monthFilter, setMonthFilter] = useState('');
@@ -1215,7 +1165,7 @@ function CarteraPage() {
 
   return (
     <Shell>
-      <PageHeading eyebrow="Créditos" title="Cartera" description="Gestiona las ventas a crédito, créditos manuales y sus abonos." action={<div className="flex gap-2"><Button variant="secondary" onClick={() => setClientsModal(true)} className="min-h-[28px] px-2.5 text-sm" data-testid="button-manage-clients"><Users size={14} /> Clientes</Button><Button onClick={() => setNewCreditModal(true)} className="min-h-[28px] px-2.5 text-sm" data-testid="button-new-manual-credit"><Plus size={14} /> Nuevo crédito</Button></div>} />
+      <PageHeading eyebrow="Créditos" title="Cartera" description="Gestiona las ventas a crédito, créditos manuales y sus abonos." action={<div className="flex gap-2"><Link href="/app/clientes" className="inline-flex min-h-[28px] items-center justify-center gap-2 rounded-xl border bg-[hsl(var(--card))] px-2.5 text-sm font-bold text-[hsl(var(--foreground))] shadow-sm" data-testid="button-manage-clients"><Users size={14} /> Clientes</Link><Button onClick={() => setNewCreditModal(true)} className="min-h-[28px] px-2.5 text-sm" data-testid="button-new-manual-credit"><Plus size={14} /> Nuevo crédito</Button></div>} />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="grid flex-1 gap-1.5">
           <span className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Buscar cliente</span>
@@ -1399,7 +1349,6 @@ function CarteraPage() {
       {paymentTarget && <AbonoModal target={paymentTarget} onClose={() => setPaymentTarget(null)} />}
       {detailClient && <ClientDetailModal detail={detailClient} onClose={() => setDetailClient(null)} />}
       {newCreditModal && <NewManualCreditModal onClose={() => setNewCreditModal(false)} />}
-      {clientsModal && <ClientsManagerModal onClose={() => setClientsModal(false)} />}
     </Shell>
   );
 }
@@ -1622,81 +1571,6 @@ function ClientDetailModal({ detail, onClose }: { detail: { name: string; code: 
         <div className="border-t px-5 sm:px-6 py-3 sm:py-5 flex justify-end">
           <Button variant="ghost" onClick={onClose} className="min-h-[44px] px-6">Cerrar</Button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ClientsManagerModal({ onClose }: { onClose: () => void }) {
-  const clientsList = useListClients();
-  const createClient = useCreateClient();
-  const updateClient = useUpdateClient();
-  const deleteClient = useDeleteClient();
-  const qc = useQueryClient();
-  const [editing, setEditing] = useState<Client | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [error, setError] = useState('');
-
-  const startEdit = (c: Client) => { setEditing(c); setName(c.name); setPhone(c.phone || ''); setAddress(c.address || ''); setShowForm(true); setError(''); };
-  const startNew = () => { setEditing(null); setName(''); setPhone(''); setAddress(''); setShowForm(true); setError(''); };
-  const submitForm = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) { setError('Escribe el nombre.'); return; }
-    setError('');
-    const data = { name: name.trim(), phone: phone.trim() || undefined, address: address.trim() || undefined };
-    if (editing) {
-      updateClient.mutate({ id: editing.id, data }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getListClientsQueryKey() }); qc.invalidateQueries({ queryKey: getListSalesQueryKey() }); qc.invalidateQueries({ queryKey: getListManualCreditsQueryKey() }); setShowForm(false); setEditing(null); }, onError: () => setError('No se pudo guardar.') });
-    } else {
-      createClient.mutate({ data }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getListClientsQueryKey() }); setShowForm(false); }, onError: () => setError('No se pudo crear.') });
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[hsl(var(--foreground)/.45)] p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-lg rounded-2xl border bg-[hsl(var(--card))] p-6 shadow-2xl">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="font-mono-app text-[10px] uppercase tracking-[.16em] text-[hsl(var(--primary))]">Gestión</p>
-            <h2 className="mt-1 font-display text-3xl font-bold">Clientes</h2>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]" data-testid="button-close-clients"><X size={20} /></button>
-        </div>
-
-        {!showForm ? (
-          <>
-            <Button onClick={startNew} className="mt-4 min-h-[28px] px-2.5 text-sm" data-testid="button-new-client"><Plus size={14} /> Nuevo cliente</Button>
-            <div className="mt-4 max-h-[50vh] divide-y overflow-y-auto rounded-xl border">
-              {(clientsList.data || []).length === 0 ? (
-                <p className="p-4 text-sm text-[hsl(var(--muted-foreground))]">No hay clientes registrados.</p>
-              ) : (clientsList.data || []).map((c) => (
-                <div key={c.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <p className="font-semibold">{c.code ? <span className="mr-1 font-mono-app text-xs font-bold text-[hsl(var(--primary))]">{c.code}</span> : null}{c.name}</p>
-                    <p className="text-xs text-[hsl(var(--muted-foreground))]">{c.phone || 'Sin teléfono'}{c.address ? ` · ${c.address}` : ''}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" className="min-h-[28px] px-2 text-xs" onClick={() => startEdit(c)} data-testid={`button-edit-client-${c.id}`}>Editar</Button>
-                    <Button variant="danger" className="min-h-[28px] px-2 text-xs" onClick={() => { if (confirm('¿Eliminar este cliente?')) deleteClient.mutate({ id: c.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListClientsQueryKey() }) }); }} data-testid={`button-delete-client-${c.id}`}>Eliminar</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <form onSubmit={submitForm} className="mt-5 grid gap-4">
-            <Field label="Nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del cliente" autoFocus data-testid="input-client-name" />
-            <Field label="Teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Opcional" data-testid="input-client-phone" />
-            <Field label="Dirección" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Opcional" data-testid="input-client-address" />
-            {error && <p className="rounded-xl bg-[hsl(var(--destructive)/.1)] p-3 text-sm text-[hsl(var(--destructive))]">{error}</p>}
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button type="submit" disabled={createClient.isPending || updateClient.isPending} data-testid="button-submit-client">{editing ? 'Guardar' : 'Crear'}</Button>
-            </div>
-          </form>
-        )}
       </div>
     </div>
   );
