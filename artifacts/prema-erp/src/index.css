@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Mono:wght@400;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -76,7 +76,7 @@
   --muted-border: hsl(40 23% 84%);
   --accent-border: hsl(169 24% 63%);
   --destructive-border: hsl(3 63% 38%);
-  --app-font-sans: 'Atkinson Hyperlegible', 'DM Sans', sans-serif;
+  --app-font-sans: 'Inter', 'DM Sans', sans-serif;
   --app-font-serif: 'Fraunces', Georgia, serif;
   --app-font-mono: 'Space Mono', monospace;
   --radius: 1rem;
