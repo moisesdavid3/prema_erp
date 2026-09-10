@@ -27,6 +27,7 @@ const money = (value: number) => new Intl.NumberFormat('es-CO', { style: 'curren
 const toLocalDateString = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dateInputToISO = (d: string) => new Date(`${d}T12:00:00`).toISOString();
 const dateLabel = (date: string) => new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(date));
+const carteraClientKey = (clientId: number | null | undefined, clientName?: string | null) => (clientId ? `c:${clientId}` : `n:${(clientName || '').toLowerCase()}`);
 const supplierOptions = (apiSuppliers: (string | null | undefined)[], productSuppliers: (string | null | undefined)[] = []) =>
   Array.from(new Set([...(apiSuppliers ?? []).filter((s): s is string => !!s), ...(productSuppliers ?? []).filter((s): s is string => !!s)])).sort((a, b) => a.localeCompare(b));
 const PAYMENT_METHODS = ['Efectivo', 'Nequi', 'Transferencia', 'Datafono', 'QR / Llave', 'Crédito'];
@@ -1007,6 +1008,7 @@ function CarteraPage() {
   const [sortKey, setSortKey] = useState<'name' | 'total' | 'paid' | 'remaining' | 'lastActivity'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [monthFilter, setMonthFilter] = useState('');
+  const [companyFilter, setCompanyFilter] = useState<number | null>(null);
 
   const monthOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
@@ -1022,8 +1024,10 @@ function CarteraPage() {
 
   const inMonth = (iso: string, yyyyMM: string) => iso.slice(0, 7) === yyyyMM;
 
-  const creditSales = useMemo(() => (sales.data || []).filter((s) => s.paymentMethod === 'Crédito' && (!monthFilter || inMonth(s.date, monthFilter))), [sales.data, monthFilter]);
-  const allManualCredits = useMemo(() => (manualCredits.data || []).filter((mc) => !monthFilter || inMonth(mc.createdAt, monthFilter)), [manualCredits.data, monthFilter]);
+  const creditSalesMonth = useMemo(() => (sales.data || []).filter((s) => s.paymentMethod === 'Crédito' && (!monthFilter || inMonth(s.date, monthFilter))), [sales.data, monthFilter]);
+  const allManualCreditsMonth = useMemo(() => (manualCredits.data || []).filter((mc) => !monthFilter || inMonth(mc.createdAt, monthFilter)), [manualCredits.data, monthFilter]);
+  const creditSales = useMemo(() => creditSalesMonth.filter((s) => companyFilter == null || (s.companyId ?? 0) === companyFilter), [creditSalesMonth, companyFilter]);
+  const allManualCredits = useMemo(() => allManualCreditsMonth.filter((mc) => companyFilter == null || (mc.companyId ?? 0) === companyFilter), [allManualCreditsMonth, companyFilter]);
 
   const lastPayments = useListLastCreditPayments();
 
@@ -1104,13 +1108,11 @@ function CarteraPage() {
   const totalPaid = clientGroups.reduce((sum, g) => sum + g.paid, 0);
 
   const perCompanyKpi = (cid: number) => {
-    const remainingByClient = new Map<string, number>();
-    for (const g of clientGroups) {
-      let rem = 0;
-      for (const s of g.sales) if ((s.companyId ?? 0) === cid) rem += s.total - (g.paidMap.get(s.id) ?? 0);
-      for (const mc of g.manualCredits) if ((mc.companyId ?? 0) === cid) rem += mc.total - mc.paid;
-      if (rem > 0) remainingByClient.set(g.key, rem);
-    }
+    const remByClient = new Map<string, number>();
+    const add = (key: string, amount: number) => remByClient.set(key, (remByClient.get(key) ?? 0) + amount);
+    for (const s of creditSalesMonth) if ((s.companyId ?? 0) === cid) add(carteraClientKey(s.clientId, s.clientName), s.total - (s.creditPaid ?? 0));
+    for (const mc of allManualCreditsMonth) if ((mc.companyId ?? 0) === cid) add(carteraClientKey(mc.clientId, mc.clientName), mc.total - mc.paid);
+    const remainingByClient = new Map<string, number>([...remByClient].filter(([, v]) => v > 0));
     return {
       saldo: [...remainingByClient.values()].reduce((a, b) => a + b, 0),
       clientes: remainingByClient.size,
@@ -1232,6 +1234,16 @@ function CarteraPage() {
           </label>
         </div>
         <div className="grid gap-1.5 sm:w-44">
+          <span className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Tienda</span>
+          <label className="relative">
+            <select value={companyFilter === null ? '' : String(companyFilter)} onChange={(e) => setCompanyFilter(e.target.value ? Number(e.target.value) : null)} aria-label="Filtrar por tienda" className="h-11 w-full appearance-none rounded-xl border bg-[hsl(var(--card))] pl-4 pr-10 text-sm font-semibold outline-none focus:border-[hsl(var(--primary))]" data-testid="select-company-cartera">
+              <option value="">Todas las tiendas</option>
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-3.5 text-[hsl(var(--muted-foreground))]" />
+          </label>
+        </div>
+        <div className="grid gap-1.5 sm:w-44">
           <span className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Estado</span>
           <label className="relative">
             <select value={status} onChange={(e) => setStatus(e.target.value as 'all' | 'pending' | 'paid')} className="h-11 w-full appearance-none rounded-xl border bg-[hsl(var(--card))] pl-4 pr-10 text-sm font-semibold outline-none focus:border-[hsl(var(--primary))]" data-testid="select-status-credit">
@@ -1278,7 +1290,7 @@ function CarteraPage() {
       ) : (sales.isError || manualCredits.isError) ? (
         <StatusMessage text="No pudimos cargar la cartera." onRetry={() => { sales.refetch(); manualCredits.refetch(); }} />
       ) : clientGroups.length === 0 ? (
-        <StatusMessage type="empty" text={search || status !== 'all' || monthFilter ? 'No encontramos créditos con esos filtros.' : 'No hay créditos registrados.'} />
+        <StatusMessage type="empty" text={search || status !== 'all' || monthFilter || companyFilter != null ? 'No encontramos créditos con esos filtros.' : 'No hay créditos registrados.'} />
       ) : (
         <>
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" data-testid="kpi-grid-cartera">
