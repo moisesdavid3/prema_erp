@@ -9,7 +9,7 @@ const isWorker = typeof (globalThis as { caches?: unknown }).caches !== "undefin
 
 export const dbContext = new AsyncLocalStorage<DbInstance>();
 
-export function createDbConnection(): { sql: Sql; db: DbInstance } {
+export function createDbConnection(options?: { max?: number; idleTimeout?: number; maxLifetime?: number }): { sql: Sql; db: DbInstance } {
   if (!process.env.DATABASE_URL) {
     throw new Error(
       "DATABASE_URL must be set. Did you forget to provision a database?",
@@ -18,9 +18,9 @@ export function createDbConnection(): { sql: Sql; db: DbInstance } {
 
   const sql = postgres(process.env.DATABASE_URL, {
     prepare: false,
-    max: 1,
-    idle_timeout: 0,
-    max_lifetime: 0,
+    max: options?.max ?? 1,
+    idle_timeout: options?.idleTimeout ?? 0,
+    max_lifetime: options?.maxLifetime ?? 0,
   });
   return { sql, db: drizzle(sql, { schema }) };
 }
