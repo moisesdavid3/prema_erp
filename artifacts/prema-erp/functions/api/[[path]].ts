@@ -130,7 +130,7 @@ let sharedDb: DbHandle | undefined;
 
 function getSharedDb(): DbHandle {
   if (!sharedDb) {
-    sharedDb = createDbConnection({ max: 1, idleTimeout: 0, maxLifetime: 0 });
+    sharedDb = createDbConnection({ max: 5, idleTimeout: 60, maxLifetime: 300 });
   }
   return sharedDb;
 }
