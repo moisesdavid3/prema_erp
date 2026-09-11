@@ -124,30 +124,23 @@ function createRes(): any {
   return res;
 }
 
-type DbHandle = ReturnType<typeof createDbConnection>;
-
-let sharedDb: DbHandle | undefined;
-
-function getSharedDb(): DbHandle {
-  if (!sharedDb) {
-    sharedDb = createDbConnection({ max: 5, idleTimeout: 60, maxLifetime: 300 });
-  }
-  return sharedDb;
-}
-
 export const onRequest: PagesFunction = async ({ request }) => {
   const url = new URL(request.url);
   const req = await createReq(request, url);
   const res = createRes();
   res.socket = req.socket;
 
-  const { db } = getSharedDb();
-  await dbContext.run(db, () =>
-    new Promise<void>((resolve, reject) => {
-      res.once("finish", () => resolve());
-      app(req, res, (err: unknown) => (err ? reject(err) : resolve()));
-    }),
-  );
+  const { sql, db } = createDbConnection();
+  try {
+    await dbContext.run(db, () =>
+      new Promise<void>((resolve, reject) => {
+        res.once("finish", () => resolve());
+        app(req, res, (err: unknown) => (err ? reject(err) : resolve()));
+      }),
+    );
+  } finally {
+    await sql.end().catch(() => {});
+  }
 
   const responseHeaders = new Headers();
   for (const [key, value] of Object.entries(res.getHeaders())) {
