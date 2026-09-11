@@ -1474,7 +1474,7 @@ function ClientDetailModal({ detail, onClose }: { detail: { name: string; code: 
                       <td className="px-3 py-2 text-xs">{dateLabel(s.date)}</td>
                       <td className="px-3 py-2"><span className="rounded-full bg-[hsl(var(--accent)/.6)] px-2 py-0.5 text-[10px] font-bold">Venta #{s.saleNumber}</span><span className="ml-1 rounded-full bg-[hsl(var(--muted))] px-1.5 py-0.5 text-[9px] font-bold text-[hsl(var(--muted-foreground))]">{companyName(s.companyId ?? 0)}</span></td>
                       <td className="px-3 py-2 text-xs text-[hsl(var(--muted-foreground))] min-w-[240px]">{s.items?.length ? <div className="flex flex-col gap-1">{s.items.map((it, idx) => <span key={idx} className="whitespace-nowrap"><b className="font-mono-app text-[hsl(var(--foreground))]">{it.quantity}×</b> <span className="font-semibold text-[hsl(var(--foreground))]">{it.productCode ? `${it.productCode} ` : ''}{it.productName}</span></span>)}</div> : '—'}</td>
-                      <td className="px-3 py-2 text-right font-bold">{money(s.total)}</td>
+                      <td className="px-3 py-2 text-right font-bold">{s.isDelivery ? <div className="text-right"><span className="block">{money(s.total - (s.deliveryCost || 0))}</span><span className="block text-[10px] font-semibold text-[hsl(var(--muted-foreground))]">Domicilio {money(s.deliveryCost || 0)}</span></div> : money(s.total)}</td>
                       <td className="px-3 py-2 text-right text-green-600">{money(p)}</td>
                       <td className="px-3 py-2 text-right">{money(s.total - p)}</td>
                       <td className="px-3 py-2"></td>
@@ -1525,7 +1525,7 @@ function ClientDetailModal({ detail, onClose }: { detail: { name: string; code: 
                   </div>
                   {s.items?.length > 0 && <div className="mt-1.5 grid gap-1">{s.items.map((it, idx) => <p key={idx} className="text-xs text-[hsl(var(--muted-foreground))]"><b className="font-mono-app text-[hsl(var(--foreground))]">{it.quantity}×</b> <span className="font-semibold text-[hsl(var(--foreground))]">{it.productCode ? `${it.productCode} ` : ''}{it.productName}</span></p>)}</div>}
                   <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className="font-bold">{money(s.total)}</span>
+<span className="font-bold">{s.isDelivery ? <span className="text-right"><span className="block">{money(s.total - (s.deliveryCost || 0))}</span><span className="block text-[10px] font-semibold text-[hsl(var(--muted-foreground))]">Domicilio {money(s.deliveryCost || 0)}</span></span> : money(s.total)}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-green-600">Pagado: {money(p)}</span>
                       <span className="font-bold text-orange-600">{money(s.total - p)}</span>

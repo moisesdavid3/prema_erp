@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, inventoryMovementsTable, productsTable, purchaseItemsTable, purchasesTable } from "@workspace/db";
 import {
   CreatePurchaseBody,
@@ -12,7 +12,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireCompany } from "../middlewares/requireCompany";
-import { dateRangeForPeriod, maxProductCodeNumber, productCodePrefix, purchaseResponse, purchaseWhere, resolveSupplier } from "../lib/inventory-service";
+import { dateRangeForPeriod, maxProductCodeNumber, productCodePrefix, purchaseResponse, purchaseWhere, resolveSupplier, toPurchaseResponse } from "../lib/inventory-service";
 
 const router: IRouter = Router();
 router.use("/purchases", requireAuth, requireCompany);
@@ -30,7 +30,16 @@ router.get("/purchases", async (req, res): Promise<void> => {
   const rows = await getDb().select().from(purchasesTable)
     .where(purchaseWhere(req.companyId!, range))
     .orderBy(desc(purchasesTable.purchaseDate));
-  res.json(ListPurchasesResponse.parse(await Promise.all(rows.map(purchaseResponse))));
+  const allItems = rows.length
+    ? await getDb().select().from(purchaseItemsTable).where(inArray(purchaseItemsTable.purchaseId, rows.map((r) => r.id)))
+    : [];
+  const itemsByPurchase = new Map<number, typeof allItems>();
+  for (const item of allItems) {
+    let list = itemsByPurchase.get(item.purchaseId);
+    if (!list) { list = []; itemsByPurchase.set(item.purchaseId, list); }
+    list.push(item);
+  }
+  res.json(ListPurchasesResponse.parse(rows.map((purchase) => toPurchaseResponse(purchase, itemsByPurchase.get(purchase.id) ?? []))));
 });
 
 router.post("/purchases", async (req, res): Promise<void> => {

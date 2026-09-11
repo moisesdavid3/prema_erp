@@ -273,11 +273,7 @@ export function paymentWhere(companyId: number, range: DateRange) {
   return and(...conditions);
 }
 
-export async function purchaseResponse(purchase: typeof purchasesTable.$inferSelect) {
-  const items = await getDb()
-    .select()
-    .from(purchaseItemsTable)
-    .where(eq(purchaseItemsTable.purchaseId, purchase.id));
+export function toPurchaseResponse(purchase: typeof purchasesTable.$inferSelect, items: typeof purchaseItemsTable.$inferSelect[]) {
   return {
     id: purchase.id,
     date: purchase.purchaseDate,
@@ -295,6 +291,14 @@ export async function purchaseResponse(purchase: typeof purchasesTable.$inferSel
       subtotal: item.subtotal,
     })),
   };
+}
+
+export async function purchaseResponse(purchase: typeof purchasesTable.$inferSelect) {
+  const items = await getDb()
+    .select()
+    .from(purchaseItemsTable)
+    .where(eq(purchaseItemsTable.purchaseId, purchase.id));
+  return toPurchaseResponse(purchase, items);
 }
 
 async function creditPaidForSale(saleId: number): Promise<number> {
