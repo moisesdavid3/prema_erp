@@ -348,7 +348,7 @@ function InventoryAsOfModal({ onClose, activeCompanyId }: { onClose: () => void;
                   <span>Producto</span><span>Stock al corte</span><span>Precio</span><span>Valor a costo</span>
                 </div>
                 {products.map((p) => <div key={p.id} className="border-b p-5 last:border-0 md:grid md:grid-cols-[1fr_120px_120px_140px] md:items-center md:gap-4 md:px-5 md:py-4" data-testid={`inventory-report-row-${p.id}`}>
-                  <div className="min-w-0"><p className="whitespace-normal break-words font-bold">{p.code ? `${p.code} · ` : ''}{p.name}</p>{p.supplier && <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">{p.supplier}</p>}</div>
+                  <div className="min-w-0"><p className="whitespace-normal break-words font-bold">{p.code ? `${p.code} · ` : ''}{[p.name, p.content].filter(Boolean).join(' x ')}</p>{p.supplier && <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">{p.supplier}</p>}</div>
                   <p className="mt-1 md:mt-0"><span className="font-mono-app text-lg font-bold">{p.stock}</span>{p.minimumStock > 0 && p.stock <= p.minimumStock && <span className="ml-2 rounded-full bg-[hsl(var(--secondary))] px-2.5 py-1 text-[10px] font-bold text-[hsl(var(--primary))]">Por surtir</span>}</p>
                   <p className="mt-1 text-sm md:mt-0">{money(p.salePrice)}</p>
                   <p className="mt-1 text-sm font-semibold md:mt-0">{money(p.cost * p.stock)}</p>
@@ -381,8 +381,8 @@ function Products() {
   const categories = useMemo(() => Array.from(new Set((products.data || []).map((p) => p.category).filter((c): c is string => !!c))).sort((a, b) => a.localeCompare(b)), [products.data]);
   const list = useMemo(() => [...(products.data || [])].filter((p) => (p.name.toLowerCase().includes(search.toLowerCase()) || p.code?.toLowerCase().includes(search.toLowerCase())) && (supplier === 'all' || (supplier === 'none' ? !p.supplier : p.supplier === supplier)) && (category === 'all' || p.category === category) && (status === 'all' || (status === 'low' ? p.stock <= p.minimumStock : p.stock > p.minimumStock))).sort((a, b) => sort === 'stock' ? a.stock - b.stock : sort === 'price' ? b.salePrice - a.salePrice : a.name.localeCompare(b.name)), [products.data, search, sort, supplier, category, status]);
   const downloadProductsXlsx = () => {
-    const rows: (string | number)[][] = [['Código', 'Nombre', 'Proveedor', 'Categoría', 'Costo', 'Precio de venta', 'Stock', 'Stock mínimo', 'Descripción', 'Contenido', 'Creado', 'Actualizado']];
-    for (const p of list) rows.push([p.code || '', p.name, p.supplier || '', p.category || '', p.cost, p.salePrice, p.stock, p.minimumStock, p.description || '', p.content || '', new Date(p.createdAt).toLocaleDateString('es-CO'), new Date(p.updatedAt).toLocaleDateString('es-CO')]);
+    const rows: (string | number)[][] = [['Código', 'Nombre', 'Contenido', 'Proveedor', 'Categoría', 'Costo', 'Precio de venta', 'Stock', 'Stock mínimo', 'Descripción', 'Creado', 'Actualizado']];
+    for (const p of list) rows.push([p.code || '', p.name, p.content || '', p.supplier || '', p.category || '', p.cost, p.salePrice, p.stock, p.minimumStock, p.description || '', new Date(p.createdAt).toLocaleDateString('es-CO'), new Date(p.updatedAt).toLocaleDateString('es-CO')]);
     downloadBlob(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }), `productos-${new Date().toISOString().slice(0, 10)}.csv`);
     buildXlsxBlob(rows).then((blob) => downloadBlob(blob, `productos-${new Date().toISOString().slice(0, 10)}.xlsx`));
   };
