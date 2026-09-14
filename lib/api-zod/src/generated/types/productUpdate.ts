@@ -19,6 +19,7 @@ export interface ProductUpdate {
   salePrice?: number;
   /** @minimum 0 */
   minimumStock?: number;
+  active?: boolean;
   /**
      * Corrige la existencia actual del producto
      * @minimum 0

@@ -93,6 +93,8 @@ export interface Product {
   salePrice: number;
   stock: number;
   minimumStock: number;
+  /** Si el producto está activo para ventas y compras */
+  active?: boolean;
   isDemo?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -113,6 +115,7 @@ export interface ProductInput {
   initialStock: number;
   /** @minimum 0 */
   minimumStock?: number;
+  active?: boolean;
   /** Fecha del inventario inicial (YYYY-MM-DD). Si se omite usa la fecha y hora actual. */
   initialStockDate?: string;
 }
@@ -130,6 +133,7 @@ export interface ProductUpdate {
   salePrice?: number;
   /** @minimum 0 */
   minimumStock?: number;
+  active?: boolean;
   /**
      * Corrige la existencia actual del producto
      * @minimum 0

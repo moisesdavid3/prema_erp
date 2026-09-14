@@ -19,6 +19,7 @@ export const productsTable = pgTable(
     salePrice: integer("sale_price").notNull(),
     stock: integer("stock").notNull().default(0),
     minimumStock: integer("minimum_stock").notNull().default(5),
+    active: boolean("active").notNull().default(true),
     isDemo: boolean("is_demo").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

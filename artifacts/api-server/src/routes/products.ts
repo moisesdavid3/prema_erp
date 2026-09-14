@@ -65,6 +65,7 @@ router.post("/products", async (req, res): Promise<void> => {
       salePrice: parsed.data.salePrice,
       stock: parsed.data.initialStock,
       minimumStock: parsed.data.minimumStock ?? 5,
+      active: parsed.data.active ?? true,
     }).returning();
     await tx.insert(inventoryMovementsTable).values({
       companyId: req.companyId!,

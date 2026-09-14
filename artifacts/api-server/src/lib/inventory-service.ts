@@ -166,6 +166,7 @@ export function productResponse(product: typeof productsTable.$inferSelect) {
     salePrice: product.salePrice,
     stock: product.stock,
     minimumStock: product.minimumStock,
+    active: product.active,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };

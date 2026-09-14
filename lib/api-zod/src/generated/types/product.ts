@@ -21,6 +21,8 @@ export interface Product {
   salePrice: number;
   stock: number;
   minimumStock: number;
+  /** Si el producto está activo para ventas y compras */
+  active?: boolean;
   isDemo?: boolean;
   createdAt: Date;
   updatedAt: Date;

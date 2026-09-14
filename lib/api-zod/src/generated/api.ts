@@ -204,6 +204,7 @@ export const ListProductsResponseItem = zod.object({
   "salePrice": zod.number(),
   "stock": zod.number(),
   "minimumStock": zod.number(),
+  "active": zod.boolean().optional().describe('Si el producto está activo para ventas y compras'),
   "isDemo": zod.boolean().optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -235,6 +236,7 @@ export const CreateProductBody = zod.object({
   "salePrice": zod.number().min(createProductBodySalePriceMin),
   "initialStock": zod.number().min(createProductBodyInitialStockMin),
   "minimumStock": zod.number().min(createProductBodyMinimumStockMin).optional(),
+  "active": zod.boolean().optional(),
   "initialStockDate": zod.coerce.date().optional().describe('Fecha del inventario inicial (YYYY-MM-DD). Si se omite usa la fecha y hora actual.')
 })
 
@@ -251,6 +253,7 @@ export const CreateProductResponse = zod.object({
   "salePrice": zod.number(),
   "stock": zod.number(),
   "minimumStock": zod.number(),
+  "active": zod.boolean().optional().describe('Si el producto está activo para ventas y compras'),
   "isDemo": zod.boolean().optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -287,6 +290,7 @@ export const UpdateProductBody = zod.object({
   "cost": zod.number().min(updateProductBodyCostMin).optional(),
   "salePrice": zod.number().min(updateProductBodySalePriceMin).optional(),
   "minimumStock": zod.number().min(updateProductBodyMinimumStockMin).optional(),
+  "active": zod.boolean().optional(),
   "stock": zod.number().min(updateProductBodyStockMin).optional().describe('Corrige la existencia actual del producto'),
   "stockDate": zod.coerce.date().optional().describe('Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual.')
 })
@@ -304,6 +308,7 @@ export const UpdateProductResponse = zod.object({
   "salePrice": zod.number(),
   "stock": zod.number(),
   "minimumStock": zod.number(),
+  "active": zod.boolean().optional().describe('Si el producto está activo para ventas y compras'),
   "isDemo": zod.boolean().optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -355,6 +360,7 @@ export const AddInventoryResponse = zod.object({
   "salePrice": zod.number(),
   "stock": zod.number(),
   "minimumStock": zod.number(),
+  "active": zod.boolean().optional().describe('Si el producto está activo para ventas y compras'),
   "isDemo": zod.boolean().optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -814,6 +820,7 @@ export const GetInventoryReportResponse = zod.object({
   "salePrice": zod.number(),
   "stock": zod.number(),
   "minimumStock": zod.number(),
+  "active": zod.boolean().optional().describe('Si el producto está activo para ventas y compras'),
   "isDemo": zod.boolean().optional(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()

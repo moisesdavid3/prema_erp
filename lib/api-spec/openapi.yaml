@@ -1123,6 +1123,9 @@ components:
           type: number
         minimumStock:
           type: number
+        active:
+          type: boolean
+          description: Si el producto está activo para ventas y compras
         isDemo:
           type: boolean
         createdAt:
@@ -1158,6 +1161,9 @@ components:
         minimumStock:
           type: number
           minimum: 0
+        active:
+          type: boolean
+
         initialStockDate:
           type: string
           format: date
@@ -1186,6 +1192,8 @@ components:
         minimumStock:
           type: number
           minimum: 0
+        active:
+          type: boolean
         stock:
           type: number
           minimum: 0
