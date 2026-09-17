@@ -191,6 +191,8 @@ export interface SaleItem {
   productName: string;
   /** Código del producto al momento de la venta */
   productCode?: string | null;
+  /** Contenido / presentación del producto al momento de la venta */
+  content?: string;
   quantity: number;
   unitPrice: number;
   unitCost: number;

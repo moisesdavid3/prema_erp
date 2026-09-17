@@ -333,6 +333,7 @@ export function toSaleResponse(sale: typeof salesTable.$inferSelect, items: type
       productId: item.productId,
       productName: item.productName,
       productCode: item.productCode ?? null,
+      content: item.productContent ?? undefined,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       unitCost: item.unitCost,
