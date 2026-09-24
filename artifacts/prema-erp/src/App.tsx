@@ -657,6 +657,7 @@ function SalesReport() {
                         <button type="button" onClick={() => setEditingSale({ id: s.id, field: 'paymentMethod', value: s.paymentMethod || '' })} className="rounded p-0.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))]" title="Editar método de pago" data-testid={`button-edit-payment-${s.id}`}><Pencil size={12} /></button>
                       </span>
                     )}
+                    {s.paymentMethod === 'Crédito' && s.clientName && <span className="rounded-full bg-[hsl(var(--primary)/.1)] px-2 py-1 text-xs font-bold text-[hsl(var(--primary))]" title="Cliente" data-testid={`report-sale-client-${s.id}`}>{s.clientCode ? `${s.clientCode} ${s.clientName}` : s.clientName}</span>}
                     {editingSale?.id === s.id && editingSale.field === 'notes' ? (
                       <input autoFocus value={editingSale.value} onChange={(e) => setEditingSale({ ...editingSale, value: e.target.value })} onBlur={() => patchSale.mutate({ id: s.id, data: { notes: editingSale.value || null } })} onKeyDown={(e) => { if (e.key === 'Enter') patchSale.mutate({ id: s.id, data: { notes: editingSale.value || null } }); if (e.key === 'Escape') setEditingSale(null); }} className="h-6 w-48 rounded-lg border bg-[hsl(var(--background))] px-1.5 text-xs font-semibold outline-none" data-testid={`edit-notes-${s.id}`} placeholder="Agregar nota..." />
                     ) : (
