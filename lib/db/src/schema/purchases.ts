@@ -21,6 +21,7 @@ export const purchaseItemsTable = pgTable("inventory_purchase_items", {
   productId: integer("product_id").notNull(),
   productName: text("product_name").notNull(),
   productCode: text("product_code"),
+  productContent: text("product_content"),
   quantity: integer("quantity").notNull(),
   unitCost: integer("unit_cost").notNull(),
   subtotal: integer("subtotal").notNull(),

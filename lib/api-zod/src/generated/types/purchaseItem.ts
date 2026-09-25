@@ -11,6 +11,8 @@ export interface PurchaseItem {
   productName: string;
   /** Código del producto al momento de la compra */
   productCode?: string | null;
+  /** Contenido / presentación del producto al momento de la compra */
+  content?: string;
   quantity: number;
   unitCost: number;
   subtotal: number;

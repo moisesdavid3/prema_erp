@@ -664,6 +664,7 @@ export const ListPurchasesResponseItem = zod.object({
   "productId": zod.number(),
   "productName": zod.string(),
   "productCode": zod.string().nullish().describe('Código del producto al momento de la compra'),
+  "content": zod.string().optional().describe('Contenido \/ presentación del producto al momento de la compra'),
   "quantity": zod.number(),
   "unitCost": zod.number(),
   "subtotal": zod.number()
@@ -705,6 +706,7 @@ export const CreatePurchaseResponse = zod.object({
   "productId": zod.number(),
   "productName": zod.string(),
   "productCode": zod.string().nullish().describe('Código del producto al momento de la compra'),
+  "content": zod.string().optional().describe('Contenido \/ presentación del producto al momento de la compra'),
   "quantity": zod.number(),
   "unitCost": zod.number(),
   "subtotal": zod.number()
@@ -749,6 +751,7 @@ export const ImportPurchasesResponse = zod.object({
   "productId": zod.number(),
   "productName": zod.string(),
   "productCode": zod.string().nullish().describe('Código del producto al momento de la compra'),
+  "content": zod.string().optional().describe('Contenido \/ presentación del producto al momento de la compra'),
   "quantity": zod.number(),
   "unitCost": zod.number(),
   "subtotal": zod.number()
@@ -779,6 +782,7 @@ export const GetPurchaseResponse = zod.object({
   "productId": zod.number(),
   "productName": zod.string(),
   "productCode": zod.string().nullish().describe('Código del producto al momento de la compra'),
+  "content": zod.string().optional().describe('Contenido \/ presentación del producto al momento de la compra'),
   "quantity": zod.number(),
   "unitCost": zod.number(),
   "subtotal": zod.number()

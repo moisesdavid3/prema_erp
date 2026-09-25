@@ -1507,6 +1507,9 @@ components:
           type: string
           nullable: true
           description: Código del producto al momento de la compra
+        content:
+          type: string
+          description: Contenido / presentación del producto al momento de la compra
         quantity:
           type: number
         unitCost:
