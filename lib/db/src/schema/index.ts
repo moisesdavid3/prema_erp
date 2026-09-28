@@ -23,3 +23,4 @@ export * from "./purchases";
 export * from "./sales";
 export * from "./suppliers";
 export * from "./stockouts";
+export * from "./einvoicing";

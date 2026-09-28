@@ -34,6 +34,7 @@ export const salesTable = pgTable("inventory_sales", {
   isDelivery: boolean("is_delivery").notNull().default(false),
   deliveryCost: integer("delivery_cost").notNull().default(0),
   deliveryPaid: boolean("delivery_paid").notNull().default(false),
+  taxTotal: integer("tax_total").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("inventory_sales_company_created_idx").on(t.companyId, t.createdAt),
@@ -80,6 +81,8 @@ export const saleItemsTable = pgTable("inventory_sale_items", {
   unitPrice: integer("unit_price").notNull(),
   unitCost: integer("unit_cost").notNull(),
   subtotal: integer("subtotal").notNull(),
+  taxRate: integer("tax_rate").notNull().default(0),
+  taxAmount: integer("tax_amount").notNull().default(0),
 }, (t) => [
   index("inventory_sale_items_sale_id_idx").on(t.saleId),
 ]).enableRLS();

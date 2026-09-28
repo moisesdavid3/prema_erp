@@ -8,6 +8,16 @@ export const companiesTable = pgTable("companies", {
   address: text("address"),
   phone: text("phone"),
   allowNegativeStock: boolean("allow_negative_stock").notNull().default(false),
+  // Datos fiscales para facturación electrónica DIAN
+  fiscalRegime: text("fiscal_regime"),
+  taxpayerType: text("taxpayer_type"),
+  ciiuCode: text("ciiu_code"),
+  divipolaCode: text("divipola_code"),
+  fiscalEmail: text("fiscal_email"),
+  einvoicingEnabled: boolean("einvoicing_enabled").notNull().default(false),
+  einvoicingProvider: text("einvoicing_provider"),
+  einvoicingSandbox: boolean("einvoicing_sandbox").notNull().default(true),
+  einvoicingCredentialsEncrypted: text("einvoicing_credentials_encrypted"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }).enableRLS();
