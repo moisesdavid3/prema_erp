@@ -26,9 +26,62 @@ export const ListCompaniesResponseItem = zod.object({
   "nit": zod.string().nullish().describe('NIT de la empresa'),
   "address": zod.string().nullish().describe('Dirección de la empresa'),
   "phone": zod.string().nullish().describe('Teléfono de la empresa'),
-  "allowNegativeStock": zod.boolean().describe('Permite registrar ventas incluso sin inventario suficiente')
+  "allowNegativeStock": zod.boolean().describe('Permite registrar ventas incluso sin inventario suficiente'),
+  "fiscalRegime": zod.string().nullish().describe('Régimen fiscal DIAN (ej. régimen simple)'),
+  "taxpayerType": zod.string().nullish().describe('Persona natural o jurídica'),
+  "ciiuCode": zod.string().nullish().describe('Código de actividad económica CIIU'),
+  "divipolaCode": zod.string().nullish().describe('Código DIVIPOLA del municipio'),
+  "fiscalEmail": zod.string().nullish().describe('Correo para notificaciones de facturación electrónica'),
+  "einvoicingEnabled": zod.boolean().describe('Si la facturación electrónica está activa para esta empresa'),
+  "einvoicingProvider": zod.string().nullish().describe('Proveedor tecnológico configurado (ej. factus)'),
+  "einvoicingSandbox": zod.boolean().describe('Si el proveedor está en modo sandbox\/pruebas')
 })
 export const ListCompaniesResponse = zod.array(ListCompaniesResponseItem)
+
+
+/**
+ * @summary Update a company's fiscal/e-invoicing settings
+ */
+
+
+
+export const UpdateCompanyParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const UpdateCompanyBody = zod.object({
+  "nit": zod.string().optional(),
+  "address": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "allowNegativeStock": zod.boolean().optional(),
+  "fiscalRegime": zod.string().optional(),
+  "taxpayerType": zod.string().optional(),
+  "ciiuCode": zod.string().optional(),
+  "divipolaCode": zod.string().optional(),
+  "fiscalEmail": zod.string().optional(),
+  "einvoicingEnabled": zod.boolean().optional(),
+  "einvoicingProvider": zod.string().optional(),
+  "einvoicingSandbox": zod.boolean().optional(),
+  "einvoicingCredentials": zod.record(zod.string(), zod.string()).optional().describe('Credenciales del proveedor tecnológico (se cifran antes de guardarse; nunca se devuelven)')
+})
+
+export const UpdateCompanyResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "nit": zod.string().nullish().describe('NIT de la empresa'),
+  "address": zod.string().nullish().describe('Dirección de la empresa'),
+  "phone": zod.string().nullish().describe('Teléfono de la empresa'),
+  "allowNegativeStock": zod.boolean().describe('Permite registrar ventas incluso sin inventario suficiente'),
+  "fiscalRegime": zod.string().nullish().describe('Régimen fiscal DIAN (ej. régimen simple)'),
+  "taxpayerType": zod.string().nullish().describe('Persona natural o jurídica'),
+  "ciiuCode": zod.string().nullish().describe('Código de actividad económica CIIU'),
+  "divipolaCode": zod.string().nullish().describe('Código DIVIPOLA del municipio'),
+  "fiscalEmail": zod.string().nullish().describe('Correo para notificaciones de facturación electrónica'),
+  "einvoicingEnabled": zod.boolean().describe('Si la facturación electrónica está activa para esta empresa'),
+  "einvoicingProvider": zod.string().nullish().describe('Proveedor tecnológico configurado (ej. factus)'),
+  "einvoicingSandbox": zod.boolean().describe('Si el proveedor está en modo sandbox\/pruebas')
+})
 
 
 /**
@@ -639,6 +692,94 @@ export const ListCreditPaymentsResponseItem = zod.object({
   "date": zod.coerce.date()
 })
 export const ListCreditPaymentsResponse = zod.array(ListCreditPaymentsResponseItem)
+
+
+/**
+ * @summary Emit (or retry) the DIAN electronic invoice for a sale
+ */
+
+
+
+export const EmitEinvoiceParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const EmitEinvoiceResponse = zod.object({
+  "id": zod.number(),
+  "saleId": zod.number(),
+  "invoiceNumber": zod.number(),
+  "fullInvoiceNumber": zod.string(),
+  "documentType": zod.string().describe('factura_venta o nota_credito'),
+  "status": zod.string().describe('pending | submitted | accepted | rejected | error'),
+  "cufe": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "xmlUrl": zod.string().nullish(),
+  "publicQueryUrl": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "relatedDocumentId": zod.number().nullish(),
+  "submittedAt": zod.coerce.date().nullish(),
+  "acceptedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Get the DIAN electronic invoice status for a sale
+ */
+
+
+
+export const GetEinvoiceParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const GetEinvoiceResponse = zod.object({
+  "id": zod.number(),
+  "saleId": zod.number(),
+  "invoiceNumber": zod.number(),
+  "fullInvoiceNumber": zod.string(),
+  "documentType": zod.string().describe('factura_venta o nota_credito'),
+  "status": zod.string().describe('pending | submitted | accepted | rejected | error'),
+  "cufe": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "xmlUrl": zod.string().nullish(),
+  "publicQueryUrl": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "relatedDocumentId": zod.number().nullish(),
+  "submittedAt": zod.coerce.date().nullish(),
+  "acceptedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Void an already DIAN-accepted sale via Nota Crédito
+ */
+
+
+
+export const CreateNotaCreditoParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const CreateNotaCreditoBody = zod.object({
+  "reason": zod.string()
+})
+
+export const CreateNotaCreditoResponse = zod.object({
+  "id": zod.number(),
+  "saleId": zod.number(),
+  "invoiceNumber": zod.number(),
+  "fullInvoiceNumber": zod.string(),
+  "documentType": zod.string().describe('factura_venta o nota_credito'),
+  "status": zod.string().describe('pending | submitted | accepted | rejected | error'),
+  "cufe": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "xmlUrl": zod.string().nullish(),
+  "publicQueryUrl": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "relatedDocumentId": zod.number().nullish(),
+  "submittedAt": zod.coerce.date().nullish(),
+  "acceptedAt": zod.coerce.date().nullish()
+})
 
 
 /**

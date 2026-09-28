@@ -49,6 +49,37 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Company"
+  /companies/{id}:
+    patch:
+      operationId: updateCompany
+      tags: [companies]
+      summary: Update a company's fiscal/e-invoicing settings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyUpdate"
+      responses:
+        "200":
+          description: Company updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /suppliers:
     get:
       operationId: listSuppliers
@@ -539,6 +570,78 @@ paths:
                   $ref: "#/components/schemas/CreditPayment"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /sales/{id}/einvoice:
+    post:
+      operationId: emitEinvoice
+      tags: [sales]
+      summary: Emit (or retry) the DIAN electronic invoice for a sale
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      responses:
+        "200":
+          description: E-invoice document (created, retried, or already existing)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EinvoicingDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      operationId: getEinvoice
+      tags: [sales]
+      summary: Get the DIAN electronic invoice status for a sale
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      responses:
+        "200":
+          description: E-invoice document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EinvoicingDocument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /sales/{id}/nota-credito:
+    post:
+      operationId: createNotaCredito
+      tags: [sales]
+      summary: Void an already DIAN-accepted sale via Nota Crédito
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotaCreditoInput"
+      responses:
+        "201":
+          description: Nota Crédito document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EinvoicingDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /purchases:
     get:
       operationId: listPurchases
@@ -1021,7 +1124,106 @@ components:
         allowNegativeStock:
           type: boolean
           description: Permite registrar ventas incluso sin inventario suficiente
-      required: [id, name, slug, allowNegativeStock]
+        fiscalRegime:
+          type: ["string", "null"]
+          description: Régimen fiscal DIAN (ej. régimen simple)
+        taxpayerType:
+          type: ["string", "null"]
+          description: Persona natural o jurídica
+        ciiuCode:
+          type: ["string", "null"]
+          description: Código de actividad económica CIIU
+        divipolaCode:
+          type: ["string", "null"]
+          description: Código DIVIPOLA del municipio
+        fiscalEmail:
+          type: ["string", "null"]
+          description: Correo para notificaciones de facturación electrónica
+        einvoicingEnabled:
+          type: boolean
+          description: Si la facturación electrónica está activa para esta empresa
+        einvoicingProvider:
+          type: ["string", "null"]
+          description: Proveedor tecnológico configurado (ej. factus)
+        einvoicingSandbox:
+          type: boolean
+          description: Si el proveedor está en modo sandbox/pruebas
+      required: [id, name, slug, allowNegativeStock, einvoicingEnabled, einvoicingSandbox]
+    CompanyUpdate:
+      type: object
+      properties:
+        nit:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        allowNegativeStock:
+          type: boolean
+        fiscalRegime:
+          type: string
+        taxpayerType:
+          type: string
+        ciiuCode:
+          type: string
+        divipolaCode:
+          type: string
+        fiscalEmail:
+          type: string
+        einvoicingEnabled:
+          type: boolean
+        einvoicingProvider:
+          type: string
+        einvoicingSandbox:
+          type: boolean
+        einvoicingCredentials:
+          type: object
+          description: Credenciales del proveedor tecnológico (se cifran antes de guardarse; nunca se devuelven)
+          additionalProperties:
+            type: string
+      minProperties: 1
+    EinvoicingDocument:
+      type: object
+      properties:
+        id:
+          type: number
+        saleId:
+          type: number
+        invoiceNumber:
+          type: number
+        fullInvoiceNumber:
+          type: string
+        documentType:
+          type: string
+          description: factura_venta o nota_credito
+        status:
+          type: string
+          description: pending | submitted | accepted | rejected | error
+        cufe:
+          type: ["string", "null"]
+        pdfUrl:
+          type: ["string", "null"]
+        xmlUrl:
+          type: ["string", "null"]
+        publicQueryUrl:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        relatedDocumentId:
+          type: ["number", "null"]
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+        acceptedAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [id, saleId, invoiceNumber, fullInvoiceNumber, documentType, status]
+    NotaCreditoInput:
+      type: object
+      properties:
+        reason:
+          type: string
+      required: [reason]
     SupplierSummary:
       type: object
       properties:

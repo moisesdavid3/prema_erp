@@ -27,4 +27,38 @@ export interface Company {
   phone?: string | null;
   /** Permite registrar ventas incluso sin inventario suficiente */
   allowNegativeStock: boolean;
+  /**
+     * Régimen fiscal DIAN (ej. régimen simple)
+     * @nullable
+     */
+  fiscalRegime?: string | null;
+  /**
+     * Persona natural o jurídica
+     * @nullable
+     */
+  taxpayerType?: string | null;
+  /**
+     * Código de actividad económica CIIU
+     * @nullable
+     */
+  ciiuCode?: string | null;
+  /**
+     * Código DIVIPOLA del municipio
+     * @nullable
+     */
+  divipolaCode?: string | null;
+  /**
+     * Correo para notificaciones de facturación electrónica
+     * @nullable
+     */
+  fiscalEmail?: string | null;
+  /** Si la facturación electrónica está activa para esta empresa */
+  einvoicingEnabled: boolean;
+  /**
+     * Proveedor tecnológico configurado (ej. factus)
+     * @nullable
+     */
+  einvoicingProvider?: string | null;
+  /** Si el proveedor está en modo sandbox/pruebas */
+  einvoicingSandbox: boolean;
 }

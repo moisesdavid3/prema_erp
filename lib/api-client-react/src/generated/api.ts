@@ -24,12 +24,14 @@ import type {
   Client,
   ClientInput,
   Company,
+  CompanyUpdate,
   CreditPayment,
   CreditPaymentInput,
   Dashboard,
   DeleteSupplier200,
   DeleteSupplierInput,
   DeudaMoisesInput,
+  EinvoicingDocument,
   Error,
   GetInventoryReportParams,
   GetSalesReportParams,
@@ -44,6 +46,7 @@ import type {
   ManualCredit,
   ManualCreditInput,
   NotFoundResponse,
+  NotaCreditoInput,
   PatchSaleDetails200,
   PatchSaleDetailsBody,
   Product,
@@ -245,6 +248,78 @@ export function useListCompanies<TData = Awaited<ReturnType<typeof listCompanies
 
 
 
+
+export const getUpdateCompanyUrl = (id: number,) => {
+
+
+
+
+  return `/api/companies/${id}`
+}
+
+/**
+ * @summary Update a company's fiscal/e-invoicing settings
+ */
+export const updateCompany = async (id: number,
+    companyUpdate: CompanyUpdate, options?: Parameters<typeof customFetch>[1]): Promise<Company> => {
+
+  return customFetch<Company>(getUpdateCompanyUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(companyUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCompanyMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompany>>, TError,{id: number;data: BodyType<CompanyUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCompany>>, TError,{id: number;data: BodyType<CompanyUpdate>}, TContext> => {
+
+const mutationKey = ['updateCompany'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCompany>>, {id: number;data: BodyType<CompanyUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCompany(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCompanyMutationResult = NonNullable<Awaited<ReturnType<typeof updateCompany>>>
+    export type UpdateCompanyMutationBody = BodyType<CompanyUpdate>
+    export type UpdateCompanyMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Update a company's fiscal/e-invoicing settings
+ */
+export const useUpdateCompany = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompany>>, TError,{id: number;data: BodyType<CompanyUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCompany>>,
+        TError,
+        {id: number;data: BodyType<CompanyUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCompanyMutationOptions(options));
+    }
 
 export const getListSuppliersUrl = () => {
 
@@ -1932,6 +2007,226 @@ export function useListCreditPayments<TData = Awaited<ReturnType<typeof listCred
 
 
 
+
+export const getEmitEinvoiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/sales/${id}/einvoice`
+}
+
+/**
+ * @summary Emit (or retry) the DIAN electronic invoice for a sale
+ */
+export const emitEinvoice = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<EinvoicingDocument> => {
+
+  return customFetch<EinvoicingDocument>(getEmitEinvoiceUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getEmitEinvoiceMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof emitEinvoice>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof emitEinvoice>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['emitEinvoice'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof emitEinvoice>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  emitEinvoice(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EmitEinvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof emitEinvoice>>>
+
+    export type EmitEinvoiceMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Emit (or retry) the DIAN electronic invoice for a sale
+ */
+export const useEmitEinvoice = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof emitEinvoice>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof emitEinvoice>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getEmitEinvoiceMutationOptions(options));
+    }
+
+export const getGetEinvoiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/sales/${id}/einvoice`
+}
+
+/**
+ * @summary Get the DIAN electronic invoice status for a sale
+ */
+export const getEinvoice = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<EinvoicingDocument> => {
+
+  return customFetch<EinvoicingDocument>(getGetEinvoiceUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEinvoiceQueryKey = (id: number,) => {
+    return [
+    `/api/sales/${id}/einvoice`
+    ] as const;
+    }
+
+
+export const getGetEinvoiceQueryOptions = <TData = Awaited<ReturnType<typeof getEinvoice>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEinvoice>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEinvoiceQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEinvoice>>> = ({ signal }) => getEinvoice(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEinvoice>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEinvoiceQueryResult = NonNullable<Awaited<ReturnType<typeof getEinvoice>>>
+export type GetEinvoiceQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get the DIAN electronic invoice status for a sale
+ */
+
+export function useGetEinvoice<TData = Awaited<ReturnType<typeof getEinvoice>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEinvoice>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEinvoiceQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateNotaCreditoUrl = (id: number,) => {
+
+
+
+
+  return `/api/sales/${id}/nota-credito`
+}
+
+/**
+ * @summary Void an already DIAN-accepted sale via Nota Crédito
+ */
+export const createNotaCredito = async (id: number,
+    notaCreditoInput: NotaCreditoInput, options?: Parameters<typeof customFetch>[1]): Promise<EinvoicingDocument> => {
+
+  return customFetch<EinvoicingDocument>(getCreateNotaCreditoUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(notaCreditoInput)
+  }
+);}
+
+
+
+
+
+export const getCreateNotaCreditoMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNotaCredito>>, TError,{id: number;data: BodyType<NotaCreditoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createNotaCredito>>, TError,{id: number;data: BodyType<NotaCreditoInput>}, TContext> => {
+
+const mutationKey = ['createNotaCredito'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNotaCredito>>, {id: number;data: BodyType<NotaCreditoInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createNotaCredito(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateNotaCreditoMutationResult = NonNullable<Awaited<ReturnType<typeof createNotaCredito>>>
+    export type CreateNotaCreditoMutationBody = BodyType<NotaCreditoInput>
+    export type CreateNotaCreditoMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Void an already DIAN-accepted sale via Nota Crédito
+ */
+export const useCreateNotaCredito = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNotaCredito>>, TError,{id: number;data: BodyType<NotaCreditoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createNotaCredito>>,
+        TError,
+        {id: number;data: BodyType<NotaCreditoInput>},
+        TContext
+      > => {
+      return useMutation(getCreateNotaCreditoMutationOptions(options));
+    }
 
 export const getListPurchasesUrl = (params?: ListPurchasesParams,) => {
   const normalizedParams = new URLSearchParams();

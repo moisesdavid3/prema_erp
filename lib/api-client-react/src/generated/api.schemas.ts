@@ -34,6 +34,93 @@ export interface Company {
   phone?: string | null;
   /** Permite registrar ventas incluso sin inventario suficiente */
   allowNegativeStock: boolean;
+  /**
+     * Régimen fiscal DIAN (ej. régimen simple)
+     * @nullable
+     */
+  fiscalRegime?: string | null;
+  /**
+     * Persona natural o jurídica
+     * @nullable
+     */
+  taxpayerType?: string | null;
+  /**
+     * Código de actividad económica CIIU
+     * @nullable
+     */
+  ciiuCode?: string | null;
+  /**
+     * Código DIVIPOLA del municipio
+     * @nullable
+     */
+  divipolaCode?: string | null;
+  /**
+     * Correo para notificaciones de facturación electrónica
+     * @nullable
+     */
+  fiscalEmail?: string | null;
+  /** Si la facturación electrónica está activa para esta empresa */
+  einvoicingEnabled: boolean;
+  /**
+     * Proveedor tecnológico configurado (ej. factus)
+     * @nullable
+     */
+  einvoicingProvider?: string | null;
+  /** Si el proveedor está en modo sandbox/pruebas */
+  einvoicingSandbox: boolean;
+}
+
+/**
+ * Credenciales del proveedor tecnológico (se cifran antes de guardarse; nunca se devuelven)
+ */
+export type CompanyUpdateEinvoicingCredentials = {[key: string]: string};
+
+export interface CompanyUpdate {
+  nit?: string;
+  address?: string;
+  phone?: string;
+  allowNegativeStock?: boolean;
+  fiscalRegime?: string;
+  taxpayerType?: string;
+  ciiuCode?: string;
+  divipolaCode?: string;
+  fiscalEmail?: string;
+  einvoicingEnabled?: boolean;
+  einvoicingProvider?: string;
+  einvoicingSandbox?: boolean;
+  /** Credenciales del proveedor tecnológico (se cifran antes de guardarse; nunca se devuelven) */
+  einvoicingCredentials?: CompanyUpdateEinvoicingCredentials;
+}
+
+export interface EinvoicingDocument {
+  id: number;
+  saleId: number;
+  invoiceNumber: number;
+  fullInvoiceNumber: string;
+  /** factura_venta o nota_credito */
+  documentType: string;
+  /** pending | submitted | accepted | rejected | error */
+  status: string;
+  /** @nullable */
+  cufe?: string | null;
+  /** @nullable */
+  pdfUrl?: string | null;
+  /** @nullable */
+  xmlUrl?: string | null;
+  /** @nullable */
+  publicQueryUrl?: string | null;
+  /** @nullable */
+  errorMessage?: string | null;
+  /** @nullable */
+  relatedDocumentId?: number | null;
+  /** @nullable */
+  submittedAt?: string | null;
+  /** @nullable */
+  acceptedAt?: string | null;
+}
+
+export interface NotaCreditoInput {
+  reason: string;
 }
 
 export interface SupplierSummary {
