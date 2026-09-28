@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
-import { clientsTable, companiesTable, creditPaymentsTable, getDb, inventoryMovementsTable, productsTable, saleItemsTable, salesTable } from "@workspace/db";
+import { clientsTable, companiesTable, creditPaymentsTable, einvoicingDocumentsTable, getDb, inventoryMovementsTable, productsTable, saleItemsTable, salesTable } from "@workspace/db";
 import {
   CreateCreditPaymentBody,
   CreateCreditPaymentParams,
@@ -189,10 +189,21 @@ router.get("/sales/:id", async (req, res): Promise<void> => {
   res.json(GetSaleResponse.parse(await saleResponse(sale)));
 });
 
+async function isEinvoiced(saleId: number): Promise<boolean> {
+  const [document] = await getDb().select({ status: einvoicingDocumentsTable.status })
+    .from(einvoicingDocumentsTable)
+    .where(and(eq(einvoicingDocumentsTable.saleId, saleId), eq(einvoicingDocumentsTable.documentType, "factura_venta")));
+  return document?.status === "accepted";
+}
+
 router.patch("/sales/:id", async (req, res): Promise<void> => {
   const params = GetSaleParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "No encontramos esa venta." });
+    return;
+  }
+  if (await isEinvoiced(params.data.id)) {
+    res.status(409).json({ error: "Esta venta ya fue facturada ante la DIAN y no se puede editar. Usa una nota crédito." });
     return;
   }
   const body = req.body as Record<string, unknown>;
@@ -224,6 +235,10 @@ router.delete("/sales/:id", async (req, res): Promise<void> => {
   const params = GetSaleParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "No encontramos esa venta." });
+    return;
+  }
+  if (await isEinvoiced(params.data.id)) {
+    res.status(409).json({ error: "Esta venta ya fue facturada ante la DIAN y no se puede borrar. Usa una nota crédito." });
     return;
   }
   const deleted = await getDb().transaction(async (tx) => {
