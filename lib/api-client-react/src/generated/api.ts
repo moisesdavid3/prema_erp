@@ -47,6 +47,8 @@ import type {
   ManualCreditInput,
   NotFoundResponse,
   NotaCreditoInput,
+  NumberingRange,
+  NumberingRangeInput,
   PatchSaleDetails200,
   PatchSaleDetailsBody,
   Product,
@@ -319,6 +321,155 @@ export const useUpdateCompany = <TError = ErrorType<BadRequestResponse | NotFoun
         TContext
       > => {
       return useMutation(getUpdateCompanyMutationOptions(options));
+    }
+
+export const getGetNumberingRangeUrl = (id: number,) => {
+
+
+
+
+  return `/api/companies/${id}/numbering-range`
+}
+
+/**
+ * @summary Get the active DIAN numbering range for a company
+ */
+export const getNumberingRange = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<NumberingRange> => {
+
+  return customFetch<NumberingRange>(getGetNumberingRangeUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetNumberingRangeQueryKey = (id: number,) => {
+    return [
+    `/api/companies/${id}/numbering-range`
+    ] as const;
+    }
+
+
+export const getGetNumberingRangeQueryOptions = <TData = Awaited<ReturnType<typeof getNumberingRange>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getNumberingRange>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetNumberingRangeQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getNumberingRange>>> = ({ signal }) => getNumberingRange(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getNumberingRange>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetNumberingRangeQueryResult = NonNullable<Awaited<ReturnType<typeof getNumberingRange>>>
+export type GetNumberingRangeQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get the active DIAN numbering range for a company
+ */
+
+export function useGetNumberingRange<TData = Awaited<ReturnType<typeof getNumberingRange>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getNumberingRange>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetNumberingRangeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetNumberingRangeUrl = (id: number,) => {
+
+
+
+
+  return `/api/companies/${id}/numbering-range`
+}
+
+/**
+ * @summary Set (replace) the active DIAN numbering range for a company
+ */
+export const setNumberingRange = async (id: number,
+    numberingRangeInput: NumberingRangeInput, options?: Parameters<typeof customFetch>[1]): Promise<NumberingRange> => {
+
+  return customFetch<NumberingRange>(getSetNumberingRangeUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(numberingRangeInput)
+  }
+);}
+
+
+
+
+
+export const getSetNumberingRangeMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setNumberingRange>>, TError,{id: number;data: BodyType<NumberingRangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setNumberingRange>>, TError,{id: number;data: BodyType<NumberingRangeInput>}, TContext> => {
+
+const mutationKey = ['setNumberingRange'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setNumberingRange>>, {id: number;data: BodyType<NumberingRangeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setNumberingRange(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetNumberingRangeMutationResult = NonNullable<Awaited<ReturnType<typeof setNumberingRange>>>
+    export type SetNumberingRangeMutationBody = BodyType<NumberingRangeInput>
+    export type SetNumberingRangeMutationError = ErrorType<BadRequestResponse>
+
+    /**
+ * @summary Set (replace) the active DIAN numbering range for a company
+ */
+export const useSetNumberingRange = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setNumberingRange>>, TError,{id: number;data: BodyType<NumberingRangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setNumberingRange>>,
+        TError,
+        {id: number;data: BodyType<NumberingRangeInput>},
+        TContext
+      > => {
+      return useMutation(getSetNumberingRangeMutationOptions(options));
     }
 
 export const getListSuppliersUrl = () => {

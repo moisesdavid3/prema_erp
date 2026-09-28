@@ -80,6 +80,53 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /companies/{id}/numbering-range:
+    get:
+      operationId: getNumberingRange
+      tags: [companies]
+      summary: Get the active DIAN numbering range for a company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      responses:
+        "200":
+          description: Active numbering range, or null if none configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NumberingRange"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: setNumberingRange
+      tags: [companies]
+      summary: Set (replace) the active DIAN numbering range for a company
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NumberingRangeInput"
+      responses:
+        "201":
+          description: Numbering range created and activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NumberingRange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /suppliers:
     get:
       operationId: listSuppliers
@@ -1224,6 +1271,50 @@ components:
         reason:
           type: string
       required: [reason]
+    NumberingRange:
+      type: object
+      properties:
+        id:
+          type: number
+        resolutionNumber:
+          type: string
+        prefix:
+          type: string
+        rangeFrom:
+          type: number
+        rangeTo:
+          type: number
+        nextNumber:
+          type: number
+        validFrom:
+          type: string
+          format: date-time
+        validUntil:
+          type: ["string", "null"]
+          format: date-time
+        isActive:
+          type: boolean
+      required: [id, resolutionNumber, prefix, rangeFrom, rangeTo, nextNumber, validFrom, isActive]
+    NumberingRangeInput:
+      type: object
+      properties:
+        resolutionNumber:
+          type: string
+        prefix:
+          type: string
+        rangeFrom:
+          type: number
+          minimum: 1
+        rangeTo:
+          type: number
+          minimum: 1
+        validFrom:
+          type: string
+          format: date-time
+        validUntil:
+          type: string
+          format: date-time
+      required: [resolutionNumber, prefix, rangeFrom, rangeTo, validFrom]
     SupplierSummary:
       type: object
       properties:

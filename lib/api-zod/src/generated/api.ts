@@ -85,6 +85,65 @@ export const UpdateCompanyResponse = zod.object({
 
 
 /**
+ * @summary Get the active DIAN numbering range for a company
+ */
+
+
+
+export const GetNumberingRangeParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const GetNumberingRangeResponse = zod.object({
+  "id": zod.number(),
+  "resolutionNumber": zod.string(),
+  "prefix": zod.string(),
+  "rangeFrom": zod.number(),
+  "rangeTo": zod.number(),
+  "nextNumber": zod.number(),
+  "validFrom": zod.coerce.date(),
+  "validUntil": zod.coerce.date().nullish(),
+  "isActive": zod.boolean()
+})
+
+
+/**
+ * @summary Set (replace) the active DIAN numbering range for a company
+ */
+
+
+
+export const SetNumberingRangeParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+
+
+
+
+export const SetNumberingRangeBody = zod.object({
+  "resolutionNumber": zod.string(),
+  "prefix": zod.string(),
+  "rangeFrom": zod.number().min(1),
+  "rangeTo": zod.number().min(1),
+  "validFrom": zod.coerce.date(),
+  "validUntil": zod.coerce.date().optional()
+})
+
+export const SetNumberingRangeResponse = zod.object({
+  "id": zod.number(),
+  "resolutionNumber": zod.string(),
+  "prefix": zod.string(),
+  "rangeFrom": zod.number(),
+  "rangeTo": zod.number(),
+  "nextNumber": zod.number(),
+  "validFrom": zod.coerce.date(),
+  "validUntil": zod.coerce.date().nullish(),
+  "isActive": zod.boolean()
+})
+
+
+/**
  * @summary List suppliers for the company (from table and products)
  */
 export const ListSuppliersResponseItem = zod.object({

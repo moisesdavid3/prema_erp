@@ -123,6 +123,30 @@ export interface NotaCreditoInput {
   reason: string;
 }
 
+export interface NumberingRange {
+  id: number;
+  resolutionNumber: string;
+  prefix: string;
+  rangeFrom: number;
+  rangeTo: number;
+  nextNumber: number;
+  validFrom: string;
+  /** @nullable */
+  validUntil?: string | null;
+  isActive: boolean;
+}
+
+export interface NumberingRangeInput {
+  resolutionNumber: string;
+  prefix: string;
+  /** @minimum 1 */
+  rangeFrom: number;
+  /** @minimum 1 */
+  rangeTo: number;
+  validFrom: string;
+  validUntil?: string;
+}
+
 export interface SupplierSummary {
   id: number | null;
   /** Código visible del proveedor (ej. PRV-001) */

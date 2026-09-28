@@ -42,6 +42,8 @@ export * from './manualCredit';
 export * from './manualCreditInput';
 export * from './notaCreditoInput';
 export * from './notFoundResponse';
+export * from './numberingRange';
+export * from './numberingRangeInput';
 export * from './paymentActivity';
 export * from './product';
 export * from './productInput';
