@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider, useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight, ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Box, Check, ChevronDown, CircleDollarSign, ClipboardList,
-  CreditCard, Download, History, Home as HomeIcon, LayoutDashboard, LogOut, Menu, PackagePlus, Pencil, Plus, Printer, ReceiptText, Search, ShoppingBasket,
-  ShoppingCart, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Upload, Users, Wallet, X
+  CreditCard, Download, FileCheck, History, Home as HomeIcon, LayoutDashboard, LogOut, Menu, PackagePlus, Pencil, Plus, Printer, ReceiptText, Search, Settings, ShoppingBasket,
+  ShoppingCart, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Undo2, Upload, Users, Wallet, X
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -10,10 +10,10 @@ import { supabase } from '@/lib/supabase';
 import { CompanyProvider, useCompany } from '@/lib/company';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useRoute } from 'wouter';
 import {
-  getGetDashboardQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createCreditPayment, createManualCreditPayment,
-  useAddInventory,   useCreateClient, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem,
-  useGetDashboard, useGetInventoryReport, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
-  useUpdateClient, useUpdateDeudaMoises, useUpdateProduct, useUpdateSupplier, useDeleteSupplier
+  getGetDashboardQueryKey, getGetEinvoiceQueryKey, getGetNumberingRangeQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCompaniesQueryKey, getListCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createCreditPayment, createManualCreditPayment,
+  useAddInventory,   useCreateClient, useCreateNotaCredito, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem, useEmitEinvoice,
+  useGetDashboard, useGetEinvoice, useGetInventoryReport, useGetNumberingRange, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useSetNumberingRange, useUpdateStockoutItem,
+  useUpdateClient, useUpdateCompany, useUpdateDeudaMoises, useUpdateProduct, useUpdateSupplier, useDeleteSupplier
 } from '@workspace/api-client-react';
 import type { Client, CreditPayment, ManualCredit, PaymentActivity, Product, Purchase, PurchaseImportResult, PurchaseInput, Sale, Stockout, StockoutItem, SupplierSummary } from '@workspace/api-client-react';
 import { Toaster } from '@/components/ui/toaster';
@@ -225,6 +225,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     { label: 'Compras', icon: ShoppingBasket, children: [{ href: '/app/compras', label: 'Compras', icon: ShoppingBasket }, { href: '/app/proveedores', label: 'Proveedores', icon: Truck }] },
     { label: 'Cartera', icon: CreditCard, children: [{ href: '/app/cartera', label: 'Cartera', icon: CreditCard }, { href: '/app/clientes', label: 'Clientes', icon: Users }] },
     { label: 'Reportes', icon: BarChart3, children: [{ href: '/app/reportes/ventas', label: 'Reporte de ventas', icon: ReceiptText }, { href: '/app/reportes/bajas', label: 'Bajas de inventario', icon: Box }] },
+    { href: '/app/empresa', label: 'Empresa', icon: Settings },
   ];
   return <div className="min-h-[100dvh] bg-background">
     <aside className={`fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col bg-[hsl(var(--sidebar))] px-5 py-6 text-[hsl(var(--sidebar-foreground))] transition-transform md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -437,11 +438,47 @@ function printInvoice(sale: Sale, company: { name: string; nit?: string | null; 
   const date = new Date(sale.date);
   const dateStr = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
   const items = sale.items.map((item) => `<tr><td style="text-align:left;font-size:9px">${item.quantity} × ${item.productCode || ''} ${item.productName}</td><td style="text-align:right;font-size:9px">${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(item.subtotal)}</td></tr>`).join('');
-  const companyLines = ['Tienda Natural Prema', company.nit ? `NIT. ${company.nit}` : '', 'Regimen Simplificado', 'Cel: 3007552612', 'Calle 63 # 8-28'].filter(Boolean).join('<br>');
+  const companyLines = [company.name, company.nit ? `NIT. ${company.nit}` : '', company.phone ? `Cel: ${company.phone}` : '', company.address || ''].filter(Boolean).join('<br>');
   const deliveryLine = sale.isDelivery && sale.deliveryCost ? `<div style="text-align:right;font-size:7px;margin:1px 0">Domicilio: ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(sale.deliveryCost)}</div>` : '';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Factura Venta #${sale.saleNumber}</title><style>@page{size:80mm auto;margin:1mm 5mm}body{font-family:'Courier New',monospace;font-size:7px;margin:0;padding:0 2px;color:#000}table{width:100%;border-collapse:collapse}td{padding:1px 0}h2{text-align:center;margin:2px 0;font-size:9px}.line{border-top:1px dashed #000;margin:3px 0}.total{font-size:10px;font-weight:bold;text-align:center;margin:4px 0}.footer{text-align:center;margin-top:5px;font-size:6.5px;color:#555}</style></head><body><div style="text-align:center"><b style="font-size:9px">${companyLines}</b><div class="line"></div><b>FACTURA DE VENTA</b><div>Venta #${sale.saleNumber}</div><div>${dateStr}</div>${sale.isDelivery ? '<div><b>DOMICILIO</b></div>' : ''}</div><div class="line"></div><table>${items}</table><div class="line"></div>${deliveryLine}<div class="total">TOTAL: ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(sale.total)}</div><div style="text-align:center;font-size:7px;margin:1px 0">Pago: ${sale.paymentMethod || 'No indicado'}</div>${sale.clientName ? `<div style="text-align:center;font-size:7px">Cliente: ${sale.clientCode ? `${sale.clientCode} ` : ''}${sale.clientName}${sale.clientPhone ? ` (${sale.clientPhone})` : ''}</div>` : ''}<div class="line"></div><div class="footer">Gracias por su compra</div></body></html>`;
   const w = window.open('', '_blank');
   if (w) { w.document.write(html); w.document.close(); w.print(); }
+}
+
+function EinvoiceAction({ sale }: { sale: Sale }) {
+  const qc = useQueryClient();
+  const status = useGetEinvoice(sale.id, { query: { queryKey: getGetEinvoiceQueryKey(sale.id), retry: false } });
+  const emit = useEmitEinvoice();
+  const creditNote = useCreateNotaCredito();
+  const [showCreditNote, setShowCreditNote] = useState(false);
+  const [reason, setReason] = useState('');
+  const doc = status.data;
+  const invalidate = () => qc.invalidateQueries({ queryKey: getGetEinvoiceQueryKey(sale.id) });
+
+  if (!doc) {
+    return <button type="button" disabled={emit.isPending} onClick={() => emit.mutate({ id: sale.id }, { onSuccess: invalidate })} className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))]" title="Facturar electrónicamente" data-testid={`button-emit-einvoice-${sale.id}`}><FileCheck size={15} /></button>;
+  }
+
+  if (doc.status === 'accepted') {
+    return <span className="flex items-center gap-1">
+      <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700" data-testid={`status-einvoice-${sale.id}`}>Facturada</span>
+      {doc.publicQueryUrl && <a href={doc.publicQueryUrl} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))]" title="Ver factura DIAN" data-testid={`link-einvoice-${sale.id}`}><FileCheck size={15} /></a>}
+      {!showCreditNote ? (
+        <button type="button" onClick={() => setShowCreditNote(true)} className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--destructive)/.1)] hover:text-[hsl(var(--destructive))]" title="Anular con nota crédito" data-testid={`button-nota-credito-${sale.id}`}><Undo2 size={15} /></button>
+      ) : (
+        <span className="flex items-center gap-1">
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motivo" className="h-8 w-24 rounded-lg border px-2 text-xs outline-none" data-testid={`input-nota-credito-reason-${sale.id}`} />
+          <button type="button" disabled={!reason.trim() || creditNote.isPending} onClick={() => creditNote.mutate({ id: sale.id, data: { reason } }, { onSuccess: () => { invalidate(); setShowCreditNote(false); setReason(''); } })} className="rounded-lg bg-[hsl(var(--destructive))] px-2 py-1.5 text-[10px] font-bold text-[hsl(var(--destructive-foreground))] disabled:opacity-50" data-testid={`button-confirm-nota-credito-${sale.id}`}>Anular</button>
+        </span>
+      )}
+    </span>;
+  }
+
+  if (doc.status === 'rejected' || doc.status === 'error') {
+    return <button type="button" disabled={emit.isPending} onClick={() => emit.mutate({ id: sale.id }, { onSuccess: invalidate })} className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700" title={doc.errorMessage ?? 'Reintentar'} data-testid={`button-retry-einvoice-${sale.id}`}>{emit.isPending ? 'Reintentando…' : 'Error DIAN, reintentar'}</button>;
+  }
+
+  return <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700" data-testid={`status-einvoice-${sale.id}`}>Pendiente</span>;
 }
 
 function SalePage() {
@@ -669,7 +706,7 @@ function SalesReport() {
                         {s.notes ? <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))]"><span className="font-bold">Nota:</span> {s.notes}</span> : <span className="text-xs text-[hsl(var(--muted-foreground))]">—</span>}
                         <button type="button" onClick={() => setEditingSale({ id: s.id, field: 'notes', value: s.notes || '' })} className="rounded p-0.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))]" title="Editar nota" data-testid={`button-edit-notes-${s.id}`}><Pencil size={12} /></button>
                       </span>
-                    )}<span className="flex-1" />{s.isDelivery ? <span className="text-right"><span className="block font-bold">{money(productTotal(s))}</span><span className="block text-[10px] text-[hsl(var(--muted-foreground))]">Domicilio {money(s.deliveryCost || 0)}</span></span> : <span className="font-bold">{money(s.total)}</span>}<button type="button" onClick={() => printInvoice(s, activeCompany!)} className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))]" title="Imprimir factura" data-testid={`button-print-sale-${s.id}`}><Printer size={15} /></button><button type="button" onClick={() => setConfirmSale(s.id)} className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--destructive)/.1)] hover:text-[hsl(var(--destructive))]" title="Borrar venta" data-testid={`button-delete-sale-${s.id}`}><Trash2 size={15} /></button></div><div className="mt-3 rounded-xl bg-[hsl(var(--muted)/.4)] p-3">{s.items.map((item) => <div key={item.productId} className="flex items-center justify-between gap-3 py-1 text-sm" data-testid={`report-sale-${s.id}-item-${item.productId}`}><span className="min-w-0 flex-1 truncate text-[hsl(var(--muted-foreground))]">{item.quantity} × {item.productCode || ''} {item.productName}{item.content ? ` x ${item.content}` : ''}</span><span className="shrink-0 font-semibold">{money(item.subtotal)}</span></div>)}</div></div>)}</div>{dayPayments.length > 0 && <div className="mt-3 divide-y rounded-xl border border-green-100 bg-green-50/40 px-4">{dayPayments.map((p) => <div key={`ap-${p.id}`} className="py-3" data-testid={`report-payment-${p.id}`}><div className="flex flex-wrap items-center gap-3 text-sm"><span className="font-semibold text-green-700">Abono</span>{p.clientName && <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">{p.clientName}</span>}<span className="text-xs text-[hsl(var(--muted-foreground))]">{new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit' }).format(new Date(p.date))}</span>{p.paymentMethod && <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">{p.paymentMethod}</span>}<span className="flex-1" /><span className="font-bold text-green-700">+{money(p.amount)}</span></div>{p.note && <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{p.note}</p>}</div>)}</div>}</div>;})}</div>}</section><section className="mt-6 rounded-2xl border bg-[hsl(var(--card))] p-6" data-testid="section-payment-methods"><div className="flex items-center gap-3"><CreditCard size={20} className="text-[hsl(var(--primary))]" /><h2 className="font-display text-2xl font-bold">Métodos de pago</h2></div>{paymentTotals.length === 0 ? <p className="py-8 text-sm text-[hsl(var(--muted-foreground))]">Sin datos en este periodo.</p> : <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{paymentTotals.map(([method, total]) => <div key={method} className="flex items-center justify-between rounded-xl bg-[hsl(var(--muted)/.4)] px-4 py-3"><span className="text-sm font-semibold">{method}</span><span className="font-bold">{money(total)}</span></div>)}</div>}</section></>}{confirmSale && <div className="fixed inset-0 z-[60] grid place-items-center bg-[hsl(var(--foreground)/.45)] p-4" role="dialog" aria-modal="true" data-testid="modal-confirm-delete-sale"><div className="w-full max-w-sm rounded-2xl border bg-[hsl(var(--card))] p-6 shadow-2xl"><h3 className="font-display text-2xl font-bold">¿Borrar esta venta?</h3><p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Se devolverá el inventario de sus productos y la venta desaparecerá de tus reportes.</p><div className="mt-7 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => setConfirmSale(null)} data-testid="button-cancel-delete-sale">Cancelar</Button><Button type="button" variant="danger" onClick={() => deleteSale.mutate({ id: confirmSale }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetSalesReportQueryKey() }); qc.invalidateQueries({ queryKey: getListSalesQueryKey() }); qc.invalidateQueries({ queryKey: getListProductsQueryKey() }); qc.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); setConfirmSale(null); }, onError: () => setConfirmSale(null) })} disabled={deleteSale.isPending} data-testid="button-confirm-delete-sale">{deleteSale.isPending ? 'Borrando…' : 'Borrar'}</Button></div></div></div>}</Shell>;
+                    )}<span className="flex-1" />{s.isDelivery ? <span className="text-right"><span className="block font-bold">{money(productTotal(s))}</span><span className="block text-[10px] text-[hsl(var(--muted-foreground))]">Domicilio {money(s.deliveryCost || 0)}</span></span> : <span className="font-bold">{money(s.total)}</span>}{activeCompany?.einvoicingEnabled && <EinvoiceAction sale={s} />}<button type="button" onClick={() => printInvoice(s, activeCompany!)} className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--primary))]" title="Imprimir factura" data-testid={`button-print-sale-${s.id}`}><Printer size={15} /></button><button type="button" onClick={() => setConfirmSale(s.id)} className="rounded-lg p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--destructive)/.1)] hover:text-[hsl(var(--destructive))]" title="Borrar venta" data-testid={`button-delete-sale-${s.id}`}><Trash2 size={15} /></button></div><div className="mt-3 rounded-xl bg-[hsl(var(--muted)/.4)] p-3">{s.items.map((item) => <div key={item.productId} className="flex items-center justify-between gap-3 py-1 text-sm" data-testid={`report-sale-${s.id}-item-${item.productId}`}><span className="min-w-0 flex-1 truncate text-[hsl(var(--muted-foreground))]">{item.quantity} × {item.productCode || ''} {item.productName}{item.content ? ` x ${item.content}` : ''}</span><span className="shrink-0 font-semibold">{money(item.subtotal)}</span></div>)}</div></div>)}</div>{dayPayments.length > 0 && <div className="mt-3 divide-y rounded-xl border border-green-100 bg-green-50/40 px-4">{dayPayments.map((p) => <div key={`ap-${p.id}`} className="py-3" data-testid={`report-payment-${p.id}`}><div className="flex flex-wrap items-center gap-3 text-sm"><span className="font-semibold text-green-700">Abono</span>{p.clientName && <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">{p.clientName}</span>}<span className="text-xs text-[hsl(var(--muted-foreground))]">{new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit' }).format(new Date(p.date))}</span>{p.paymentMethod && <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">{p.paymentMethod}</span>}<span className="flex-1" /><span className="font-bold text-green-700">+{money(p.amount)}</span></div>{p.note && <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{p.note}</p>}</div>)}</div>}</div>;})}</div>}</section><section className="mt-6 rounded-2xl border bg-[hsl(var(--card))] p-6" data-testid="section-payment-methods"><div className="flex items-center gap-3"><CreditCard size={20} className="text-[hsl(var(--primary))]" /><h2 className="font-display text-2xl font-bold">Métodos de pago</h2></div>{paymentTotals.length === 0 ? <p className="py-8 text-sm text-[hsl(var(--muted-foreground))]">Sin datos en este periodo.</p> : <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{paymentTotals.map(([method, total]) => <div key={method} className="flex items-center justify-between rounded-xl bg-[hsl(var(--muted)/.4)] px-4 py-3"><span className="text-sm font-semibold">{method}</span><span className="font-bold">{money(total)}</span></div>)}</div>}</section></>}{confirmSale && <div className="fixed inset-0 z-[60] grid place-items-center bg-[hsl(var(--foreground)/.45)] p-4" role="dialog" aria-modal="true" data-testid="modal-confirm-delete-sale"><div className="w-full max-w-sm rounded-2xl border bg-[hsl(var(--card))] p-6 shadow-2xl"><h3 className="font-display text-2xl font-bold">¿Borrar esta venta?</h3><p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Se devolverá el inventario de sus productos y la venta desaparecerá de tus reportes.</p><div className="mt-7 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => setConfirmSale(null)} data-testid="button-cancel-delete-sale">Cancelar</Button><Button type="button" variant="danger" onClick={() => deleteSale.mutate({ id: confirmSale }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetSalesReportQueryKey() }); qc.invalidateQueries({ queryKey: getListSalesQueryKey() }); qc.invalidateQueries({ queryKey: getListProductsQueryKey() }); qc.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); setConfirmSale(null); }, onError: () => setConfirmSale(null) })} disabled={deleteSale.isPending} data-testid="button-confirm-delete-sale">{deleteSale.isPending ? 'Borrando…' : 'Borrar'}</Button></div></div></div>}</Shell>;
 }
 
 function StockoutsReport() {
@@ -1950,8 +1987,118 @@ function AuthCard({ mode }: { mode: 'sign-in' | 'sign-up' }) {
 function SignInPage() { return <AuthCard mode="sign-in" />; }
 function SignUpPage() { return <AuthCard mode="sign-up" />; }
 
+function CompanySettingsPage() {
+  const { activeCompany } = useCompany();
+  const qc = useQueryClient();
+  const updateCompany = useUpdateCompany();
+  const numberingRange = useGetNumberingRange(activeCompany?.id ?? 0, { query: { enabled: !!activeCompany, queryKey: getGetNumberingRangeQueryKey(activeCompany?.id ?? 0) } });
+  const setNumberingRange = useSetNumberingRange();
+  const [form, setForm] = useState({
+    nit: activeCompany?.nit ?? '', address: activeCompany?.address ?? '', phone: activeCompany?.phone ?? '',
+    fiscalRegime: activeCompany?.fiscalRegime ?? '', taxpayerType: activeCompany?.taxpayerType ?? '',
+    ciiuCode: activeCompany?.ciiuCode ?? '', divipolaCode: activeCompany?.divipolaCode ?? '', fiscalEmail: activeCompany?.fiscalEmail ?? '',
+    einvoicingEnabled: activeCompany?.einvoicingEnabled ?? false, einvoicingProvider: activeCompany?.einvoicingProvider ?? 'factus', einvoicingSandbox: activeCompany?.einvoicingSandbox ?? true,
+  });
+  const [credentials, setCredentials] = useState({ clientId: '', clientSecret: '', username: '', password: '', numberingRangeId: '' });
+  const [range, setRange] = useState({ resolutionNumber: '', prefix: '', rangeFrom: '', rangeTo: '', validFrom: toLocalDateString(new Date()), validUntil: '' });
+  const [status, setStatus] = useState('');
+
+  const saveCompany = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeCompany) return;
+    const hasCredentials = Object.values(credentials).some((v) => v.trim());
+    updateCompany.mutate({
+      id: activeCompany.id,
+      data: {
+        ...form,
+        ...(hasCredentials ? { einvoicingCredentials: credentials } : {}),
+      },
+    }, {
+      onSuccess: () => { qc.invalidateQueries({ queryKey: getListCompaniesQueryKey() }); setStatus('Datos guardados.'); },
+      onError: () => setStatus('No se pudo guardar.'),
+    });
+  };
+
+  const saveRange = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeCompany) return;
+    setNumberingRange.mutate({
+      id: activeCompany.id,
+      data: {
+        resolutionNumber: range.resolutionNumber,
+        prefix: range.prefix,
+        rangeFrom: Number(range.rangeFrom),
+        rangeTo: Number(range.rangeTo),
+        validFrom: new Date(range.validFrom + 'T00:00:00-05:00').toISOString(),
+        validUntil: range.validUntil ? new Date(range.validUntil + 'T23:59:59-05:00').toISOString() : undefined,
+      },
+    }, {
+      onSuccess: () => { qc.invalidateQueries({ queryKey: getGetNumberingRangeQueryKey(activeCompany.id) }); setStatus('Rango de numeración activado.'); },
+      onError: () => setStatus('No se pudo guardar el rango de numeración.'),
+    });
+  };
+
+  if (!activeCompany) return null;
+  return <Shell>
+    <PageHeading eyebrow="Ajustes" title="Empresa" description={`Datos fiscales y facturación electrónica de ${activeCompany.name}.`} />
+    <form onSubmit={saveCompany} className="grid max-w-2xl gap-5 rounded-2xl border bg-[hsl(var(--card))] p-6">
+      <h2 className="font-display text-xl font-bold">Datos fiscales</h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="NIT" value={form.nit} onChange={(e) => setForm({ ...form, nit: e.target.value })} data-testid="input-company-nit" />
+        <Field label="Teléfono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-company-phone" />
+        <Field label="Dirección" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} data-testid="input-company-address" />
+        <Field label="Correo para facturación" value={form.fiscalEmail} onChange={(e) => setForm({ ...form, fiscalEmail: e.target.value })} data-testid="input-company-email" />
+        <Field label="Régimen fiscal" value={form.fiscalRegime} onChange={(e) => setForm({ ...form, fiscalRegime: e.target.value })} placeholder="Ej. Régimen Simple" data-testid="input-company-regime" />
+        <Field label="Tipo de contribuyente" value={form.taxpayerType} onChange={(e) => setForm({ ...form, taxpayerType: e.target.value })} placeholder="Persona natural / jurídica" data-testid="input-company-taxpayer-type" />
+        <Field label="Código CIIU" value={form.ciiuCode} onChange={(e) => setForm({ ...form, ciiuCode: e.target.value })} data-testid="input-company-ciiu" />
+        <Field label="Código DIVIPOLA" value={form.divipolaCode} onChange={(e) => setForm({ ...form, divipolaCode: e.target.value })} data-testid="input-company-divipola" />
+      </div>
+
+      <h2 className="mt-2 font-display text-xl font-bold">Facturación electrónica DIAN</h2>
+      <label className="flex items-center gap-3 text-sm font-semibold">
+        <input type="checkbox" checked={form.einvoicingEnabled} onChange={(e) => setForm({ ...form, einvoicingEnabled: e.target.checked })} data-testid="checkbox-einvoicing-enabled" />
+        Activar facturación electrónica para esta empresa
+      </label>
+      <label className="flex items-center gap-3 text-sm font-semibold">
+        <input type="checkbox" checked={form.einvoicingSandbox} onChange={(e) => setForm({ ...form, einvoicingSandbox: e.target.checked })} data-testid="checkbox-einvoicing-sandbox" />
+        Modo sandbox / pruebas (desactiva cuando ya tengas la resolución real de la DIAN)
+      </label>
+      <p className="text-sm text-[hsl(var(--muted-foreground))]">Deja los campos de credenciales vacíos para no cambiarlas.</p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Client ID" value={credentials.clientId} onChange={(e) => setCredentials({ ...credentials, clientId: e.target.value })} data-testid="input-einvoicing-client-id" />
+        <Field label="Client Secret" type="password" value={credentials.clientSecret} onChange={(e) => setCredentials({ ...credentials, clientSecret: e.target.value })} data-testid="input-einvoicing-client-secret" />
+        <Field label="Usuario" value={credentials.username} onChange={(e) => setCredentials({ ...credentials, username: e.target.value })} data-testid="input-einvoicing-username" />
+        <Field label="Contraseña" type="password" value={credentials.password} onChange={(e) => setCredentials({ ...credentials, password: e.target.value })} data-testid="input-einvoicing-password" />
+        <Field label="ID de rango en el proveedor" value={credentials.numberingRangeId} onChange={(e) => setCredentials({ ...credentials, numberingRangeId: e.target.value })} data-testid="input-einvoicing-numbering-range-id" />
+      </div>
+      {status && <p className="text-sm font-semibold text-[hsl(var(--primary))]" data-testid="status-company-settings">{status}</p>}
+      <Button type="submit" disabled={updateCompany.isPending} className="w-fit" data-testid="button-save-company">{updateCompany.isPending ? 'Guardando…' : 'Guardar'}</Button>
+    </form>
+
+    <form onSubmit={saveRange} className="mt-6 grid max-w-2xl gap-5 rounded-2xl border bg-[hsl(var(--card))] p-6">
+      <h2 className="font-display text-xl font-bold">Resolución de numeración DIAN</h2>
+      {numberingRange.data ? (
+        <p className="text-sm text-[hsl(var(--muted-foreground))]" data-testid="text-active-range">
+          Rango activo: {numberingRange.data.prefix}{numberingRange.data.rangeFrom} – {numberingRange.data.prefix}{numberingRange.data.rangeTo}, próximo número {numberingRange.data.prefix}{numberingRange.data.nextNumber} (resolución {numberingRange.data.resolutionNumber}).
+        </p>
+      ) : (
+        <p className="text-sm text-[hsl(var(--muted-foreground))]">Esta empresa no tiene un rango de numeración activo todavía.</p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Número de resolución" value={range.resolutionNumber} onChange={(e) => setRange({ ...range, resolutionNumber: e.target.value })} data-testid="input-range-resolution" />
+        <Field label="Prefijo" value={range.prefix} onChange={(e) => setRange({ ...range, prefix: e.target.value })} placeholder="Ej. SETP" data-testid="input-range-prefix" />
+        <Field label="Número inicial" type="number" value={range.rangeFrom} onChange={(e) => setRange({ ...range, rangeFrom: e.target.value })} data-testid="input-range-from" />
+        <Field label="Número final" type="number" value={range.rangeTo} onChange={(e) => setRange({ ...range, rangeTo: e.target.value })} data-testid="input-range-to" />
+        <Field label="Vigente desde" type="date" value={range.validFrom} onChange={(e) => setRange({ ...range, validFrom: e.target.value })} data-testid="input-range-valid-from" />
+        <Field label="Vigente hasta (opcional)" type="date" value={range.validUntil} onChange={(e) => setRange({ ...range, validUntil: e.target.value })} data-testid="input-range-valid-until" />
+      </div>
+      <Button type="submit" disabled={setNumberingRange.isPending} className="w-fit" data-testid="button-save-range">{setNumberingRange.isPending ? 'Guardando…' : 'Activar este rango'}</Button>
+    </form>
+  </Shell>;
+}
+
 function Routes() {
-  return <Switch><Route path="/" component={SignInPage} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route path="/app"><Protected><Dashboard /></Protected></Route><Route path="/app/productos"><Protected><Products /></Protected></Route><Route path="/app/venta"><Protected><SalePage /></Protected></Route><Route path="/app/compras"><Protected><Purchases /></Protected></Route><Route path="/app/proveedores"><Protected><SuppliersPage /></Protected></Route><Route path="/app/cartera"><Protected><CarteraPage /></Protected></Route><Route path="/app/clientes"><Protected><ClientsPage /></Protected></Route><Route path="/app/reportes"><Redirect to="/app/reportes/ventas" /></Route><Route path="/app/reportes/ventas"><Protected><SalesReport /></Protected></Route><Route path="/app/reportes/bajas"><Protected><StockoutsReport /></Protected></Route><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={SignInPage} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route path="/app"><Protected><Dashboard /></Protected></Route><Route path="/app/productos"><Protected><Products /></Protected></Route><Route path="/app/venta"><Protected><SalePage /></Protected></Route><Route path="/app/compras"><Protected><Purchases /></Protected></Route><Route path="/app/proveedores"><Protected><SuppliersPage /></Protected></Route><Route path="/app/cartera"><Protected><CarteraPage /></Protected></Route><Route path="/app/clientes"><Protected><ClientsPage /></Protected></Route><Route path="/app/reportes"><Redirect to="/app/reportes/ventas" /></Route><Route path="/app/reportes/ventas"><Protected><SalesReport /></Protected></Route><Route path="/app/reportes/bajas"><Protected><StockoutsReport /></Protected></Route><Route path="/app/empresa"><Protected><CompanySettingsPage /></Protected></Route><Route component={NotFound} /></Switch>;
 }
 
 function App() {
