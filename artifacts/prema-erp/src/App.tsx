@@ -775,6 +775,8 @@ type PaymentTarget = {
   clientName: string;
   clientPhone: string;
   companies: { companyId: number; name: string }[];
+  /** Todas las empresas con deuda del cliente, incluidas las ya saldadas. */
+  allCompanies: { companyId: number; name: string }[];
   debts: { companyId: number; kind: 'sale' | 'manual'; id: number; label: string; date: string; remaining: number }[];
 };
 
@@ -807,6 +809,12 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
   const pendingAfter = preview.reduce((sum, debt) => sum + debt.remainingAfter, 0);
   const nextDebt = preview.find((debt) => debt.applied === 0 && debt.remainingAfter > 0);
   const exceedsDebt = amountValue > queueTotal;
+  const companyTotals = useMemo(
+    () => target.allCompanies.map((c) => ({ ...c, pending: target.debts.filter((d) => d.companyId === c.companyId).reduce((sum, d) => sum + d.remaining, 0) })),
+    [target.allCompanies, target.debts],
+  );
+  const totalAllCompanies = companyTotals.reduce((sum, c) => sum + c.pending, 0);
+  const companyName = target.companies.find((c) => c.companyId === companyId)?.name || '';
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -881,10 +889,46 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
               <p className="rounded-xl bg-[hsl(var(--muted)/.4)] px-3 py-2.5 text-sm font-semibold" data-testid="text-payment-company">{target.companies[0]?.name}</p>
             </div>
           )}
+          <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3 text-sm" data-testid="credit-company-balances">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Saldo del cliente por empresa</p>
+            <div className="mt-2 grid gap-1.5">
+              {companyTotals.map((c) => {
+                const selectable = c.pending > 0 && target.companies.some((x) => x.companyId === c.companyId);
+                const row = (
+                  <>
+                    <span className="min-w-0 truncate text-[hsl(var(--muted-foreground))]">{c.name}</span>
+                    <span className="shrink-0 font-bold">{money(c.pending)}</span>
+                  </>
+                );
+                return selectable ? (
+                  <button
+                    key={c.companyId}
+                    type="button"
+                    onClick={() => setCompanyId(c.companyId)}
+                    className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-left text-xs ${c.companyId === companyId ? 'bg-[hsl(var(--card))] ring-1 ring-[hsl(var(--primary)/.4)]' : 'hover:bg-[hsl(var(--card))]'}`}
+                    title={c.companyId === companyId ? 'Empresa seleccionada' : `Abonar en ${c.name}`}
+                    data-testid={`credit-company-balance-${c.companyId}`}
+                  >
+                    {row}
+                  </button>
+                ) : (
+                  <div key={c.companyId} className="flex items-center justify-between gap-2 px-2 py-1 text-xs opacity-60" data-testid={`credit-company-balance-${c.companyId}`}>
+                    {row}
+                  </div>
+                );
+              })}
+            </div>
+            {companyTotals.length > 1 && (
+              <div className="mt-2 flex items-center justify-between border-t pt-2 text-xs">
+                <span className="text-[hsl(var(--muted-foreground))]">Total del cliente</span>
+                <span className="font-bold" data-testid="credit-total-all-companies">{money(totalAllCompanies)}</span>
+              </div>
+            )}
+          </div>
           <Field label="Monto del abono" type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus data-testid="input-credit-amount" />
           {exceedsDebt && <p className="text-xs text-[hsl(var(--destructive))]" data-testid="status-credit-exceeds">El monto supera la deuda pendiente del cliente en esta empresa.</p>}
           <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3 text-sm" data-testid="credit-fifo-queue">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Orden del abono (deuda más antigua primero)</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Orden del abono en {companyName || 'esta empresa'} (deuda más antigua primero)</p>
             <div className="mt-2 grid gap-1.5">
               {queue.map((debt) => {
                 const row = preview.find((d) => d.kind === debt.kind && d.id === debt.id)!;
@@ -901,13 +945,13 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
               })}
             </div>
             <div className="mt-3 flex items-center justify-between border-t pt-2 text-xs">
-              <span className="text-[hsl(var(--muted-foreground))]">Pendiente total del cliente</span>
+              <span className="text-[hsl(var(--muted-foreground))]">Pendiente en {companyName || 'esta empresa'}</span>
               <span className="font-bold" data-testid="credit-queue-total">{money(amountValue > 0 ? pendingAfter : queueTotal)}</span>
             </div>
           </div>
           {nextDebt && (
             <p className="text-xs text-[hsl(var(--muted-foreground))]" data-testid="credit-next-pending">
-              El abono no alcanza para {nextDebt.label} ({dateLabel(nextDebt.date)}): de esa deuda quedan {money(nextDebt.remainingAfter)} pendientes, y en total el cliente queda debiendo {money(pendingAfter)}.
+              El abono no alcanza para {nextDebt.label} ({dateLabel(nextDebt.date)}): de esa deuda quedan {money(nextDebt.remainingAfter)} pendientes, y en total queda debiendo {money(pendingAfter)} en {companyName || 'esta empresa'}.
             </p>
           )}
           <Field label="Fecha del abono" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-credit-date" />
@@ -1222,7 +1266,9 @@ function CarteraPage() {
     const companyIds = [...new Set(debts.map((d) => d.companyId))].sort((a, b) => a - b);
     const comps = companyIds.map((cid) => ({ companyId: cid, name: companies.find((c) => c.id === cid)?.name || `Empresa ${cid}` }));
     if (!comps.length) return;
-    setPaymentTarget({ clientId: g.clientId ?? null, clientName: g.name, clientPhone: g.phone, companies: comps, debts });
+    const allCompanyIds = [...new Set([...g.sales.map((s) => s.companyId), ...g.manualCredits.map((mc) => mc.companyId)].filter((v): v is number => !!v))].sort((a, b) => a - b);
+    const allComps = allCompanyIds.map((cid) => ({ companyId: cid, name: companies.find((c) => c.id === cid)?.name || `Empresa ${cid}` }));
+    setPaymentTarget({ clientId: g.clientId ?? null, clientName: g.name, clientPhone: g.phone, companies: comps, allCompanies: allComps, debts });
   };
 
   const handleSort = (key: typeof sortKey) => {
