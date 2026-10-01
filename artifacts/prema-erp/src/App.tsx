@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { CompanyProvider, useCompany } from '@/lib/company';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useRoute } from 'wouter';
 import {
-  getGetDashboardQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createCreditPayment, createManualCreditPayment,
+  getGetDashboardQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createClientCreditPayment,
   useAddInventory,   useCreateClient, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem,
   useGetDashboard, useGetInventoryReport, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
   useUpdateClient, useUpdateDeudaMoises, useUpdateProduct, useUpdateSupplier, useDeleteSupplier
@@ -771,10 +771,11 @@ function StockoutsReport() {
 }
 
 type PaymentTarget = {
+  clientId: number | null;
   clientName: string;
   clientPhone: string;
   companies: { companyId: number; name: string }[];
-  debts: { companyId: number; kind: 'sale' | 'manual'; id: number; label: string; remaining: number }[];
+  debts: { companyId: number; kind: 'sale' | 'manual'; id: number; label: string; date: string; remaining: number }[];
 };
 
 function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () => void }) {
@@ -787,7 +788,25 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const currentDebt = target.debts.find((d) => d.companyId === companyId && d.remaining > 0);
+  // FIFO: el abono salda siempre la deuda más antigua primero (créditos manuales incluidos).
+  const queue = useMemo(
+    () => target.debts.filter((d) => d.companyId === companyId && d.remaining > 0).sort((a, b) => a.date.localeCompare(b.date) || a.kind.localeCompare(b.kind) || a.id - b.id),
+    [target.debts, companyId],
+  );
+  const queueTotal = queue.reduce((sum, d) => sum + d.remaining, 0);
+  const typedAmount = Number(amount);
+  const amountValue = amount.trim() && Number.isFinite(typedAmount) && typedAmount > 0 ? Math.round(typedAmount) : 0;
+  const preview = useMemo(() => {
+    let left = amountValue;
+    return queue.map((debt) => {
+      const applied = Math.min(debt.remaining, left);
+      left -= applied;
+      return { ...debt, applied, remainingAfter: debt.remaining - applied };
+    });
+  }, [queue, amountValue]);
+  const pendingAfter = preview.reduce((sum, debt) => sum + debt.remainingAfter, 0);
+  const nextDebt = preview.find((debt) => debt.applied === 0 && debt.remainingAfter > 0);
+  const exceedsDebt = amountValue > queueTotal;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -804,20 +823,29 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
       setError('Selecciona el método de pago.');
       return;
     }
-    if (!currentDebt) {
+    if (!queue.length) {
       setError('No hay deuda pendiente en esa empresa.');
+      return;
+    }
+    if (amountValue > queueTotal) {
+      setError(`El abono supera la deuda pendiente de ${money(queueTotal)}.`);
       return;
     }
     setError('');
     setCreating(true);
-    const payload = { amount: Math.round(v), paymentMethod: paymentMethod.trim() || undefined, date: (() => { const now = new Date(); const [y, m, d] = date.split('-').map(Number); return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString(); })(), note: note.trim() || undefined };
-    const request = currentDebt.kind === 'sale'
-      ? createCreditPayment(currentDebt.id, payload, { headers: { 'x-company-id': String(companyId) } })
-      : createManualCreditPayment(currentDebt.id, payload, { headers: { 'x-company-id': String(companyId) } });
-    request
+    const payload = {
+      amount: amountValue,
+      clientId: target.clientId ?? undefined,
+      clientName: target.clientName,
+      paymentMethod: paymentMethod.trim() || undefined,
+      date: (() => { const now = new Date(); const [y, m, d] = date.split('-').map(Number); return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString(); })(),
+      note: note.trim() || undefined,
+    };
+    createClientCreditPayment(payload, { headers: { 'x-company-id': String(companyId) } })
       .then(() => {
         qc.invalidateQueries({ queryKey: getListSalesQueryKey() });
         qc.invalidateQueries({ queryKey: getListManualCreditsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetDashboardQueryKey() });
         onClose();
       })
       .catch(() => setError('No se pudo registrar el abono.'))
@@ -853,8 +881,35 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
               <p className="rounded-xl bg-[hsl(var(--muted)/.4)] px-3 py-2.5 text-sm font-semibold" data-testid="text-payment-company">{target.companies[0]?.name}</p>
             </div>
           )}
-          {currentDebt && <p className="text-xs text-[hsl(var(--muted-foreground))]">Abonando: {currentDebt.label} · Pendiente {money(currentDebt.remaining)}</p>}
           <Field label="Monto del abono" type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus data-testid="input-credit-amount" />
+          {exceedsDebt && <p className="text-xs text-[hsl(var(--destructive))]" data-testid="status-credit-exceeds">El monto supera la deuda pendiente del cliente en esta empresa.</p>}
+          <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3 text-sm" data-testid="credit-fifo-queue">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Orden del abono (deuda más antigua primero)</p>
+            <div className="mt-2 grid gap-1.5">
+              {queue.map((debt) => {
+                const row = preview.find((d) => d.kind === debt.kind && d.id === debt.id)!;
+                return (
+                  <div key={`${debt.kind}-${debt.id}`} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="min-w-0 truncate text-[hsl(var(--muted-foreground))]">{debt.label} · {dateLabel(debt.date)}</span>
+                    {row.applied > 0 ? (
+                      <span className="shrink-0 font-bold text-green-700">−{money(row.applied)}</span>
+                    ) : (
+                      <span className="shrink-0 font-semibold text-[hsl(var(--muted-foreground))]">pendiente {money(debt.remaining)}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t pt-2 text-xs">
+              <span className="text-[hsl(var(--muted-foreground))]">Pendiente total del cliente</span>
+              <span className="font-bold" data-testid="credit-queue-total">{money(amountValue > 0 ? pendingAfter : queueTotal)}</span>
+            </div>
+          </div>
+          {nextDebt && (
+            <p className="text-xs text-[hsl(var(--muted-foreground))]" data-testid="credit-next-pending">
+              El abono no alcanza para {nextDebt.label} ({dateLabel(nextDebt.date)}): de esa deuda quedan {money(nextDebt.remainingAfter)} pendientes, y en total el cliente queda debiendo {money(pendingAfter)}.
+            </p>
+          )}
           <Field label="Fecha del abono" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-credit-date" />
           <div className="grid gap-1.5 text-sm font-semibold">
             <label>Método de pago</label>
@@ -1157,16 +1212,17 @@ function CarteraPage() {
     const debts: PaymentTarget['debts'] = [];
     for (const s of g.sales) {
       const remaining = s.total - (g.paidMap.get(s.id) ?? 0);
-      if (remaining > 0 && s.companyId) debts.push({ companyId: s.companyId, kind: 'sale', id: s.id, label: `Venta #${s.saleNumber}`, remaining });
+      if (remaining > 0 && s.companyId) debts.push({ companyId: s.companyId, kind: 'sale', id: s.id, label: `Venta #${s.saleNumber}`, date: s.date, remaining });
     }
     for (const mc of g.manualCredits) {
       const remaining = mc.total - mc.paid;
-      if (remaining > 0 && mc.companyId) debts.push({ companyId: mc.companyId, kind: 'manual', id: mc.id, label: 'Crédito manual', remaining });
+      if (remaining > 0 && mc.companyId) debts.push({ companyId: mc.companyId, kind: 'manual', id: mc.id, label: 'Crédito manual', date: mc.createdAt, remaining });
     }
+    debts.sort((a, b) => a.date.localeCompare(b.date) || a.kind.localeCompare(b.kind) || a.id - b.id);
     const companyIds = [...new Set(debts.map((d) => d.companyId))].sort((a, b) => a - b);
     const comps = companyIds.map((cid) => ({ companyId: cid, name: companies.find((c) => c.id === cid)?.name || `Empresa ${cid}` }));
     if (!comps.length) return;
-    setPaymentTarget({ clientName: g.name, clientPhone: g.phone, companies: comps, debts });
+    setPaymentTarget({ clientId: g.clientId ?? null, clientName: g.name, clientPhone: g.phone, companies: comps, debts });
   };
 
   const handleSort = (key: typeof sortKey) => {

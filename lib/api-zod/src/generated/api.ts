@@ -591,6 +591,36 @@ export const DeleteSaleResponse = zod.void()
 
 
 /**
+ * Reparte el abono entre las deudas del cliente (ventas a crédito y créditos manuales) de la empresa indicada, ordenando de la más antigua a la más reciente. Si el abono no alcanza, se divide entre varias deudas.
+ * @summary Register a credit payment for a client, applied to the oldest debts first
+ */
+
+
+
+export const CreateClientCreditPaymentBody = zod.object({
+  "amount": zod.number().min(1),
+  "clientId": zod.number().optional().describe('Id del cliente; si no se envía se busca por nombre'),
+  "clientName": zod.string().optional(),
+  "paymentMethod": zod.string().optional(),
+  "note": zod.string().optional(),
+  "date": zod.coerce.date().optional().describe('Fecha del abono (por defecto ahora)')
+})
+
+export const CreateClientCreditPaymentResponse = zod.object({
+  "totalApplied": zod.number(),
+  "clientPending": zod.number().describe('Saldo total pendiente del cliente en la empresa'),
+  "allocations": zod.array(zod.object({
+  "debtId": zod.number(),
+  "kind": zod.enum(['sale', 'manual']),
+  "label": zod.string(),
+  "date": zod.coerce.date(),
+  "amount": zod.number().describe('Parte del abono que se aplicó a esta deuda'),
+  "remainingAfter": zod.number().describe('Saldo que queda en esta deuda')
+}))
+})
+
+
+/**
  * @summary Register a credit payment for a sale
  */
 

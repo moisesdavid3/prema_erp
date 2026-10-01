@@ -9,6 +9,7 @@ import suppliersRouter from "./suppliers";
 import manualCreditsRouter from "./manual-credits";
 import clientsRouter from "./clients";
 import stockoutsRouter from "./stockouts";
+import creditPaymentsRouter from "./credit-payments";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(suppliersRouter);
 router.use(manualCreditsRouter);
 router.use(clientsRouter);
 router.use(stockoutsRouter);
+router.use(creditPaymentsRouter);
 
 export default router;

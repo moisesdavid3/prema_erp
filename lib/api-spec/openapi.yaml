@@ -487,6 +487,30 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /credit-payments:
+    post:
+      operationId: createClientCreditPayment
+      tags: [sales]
+      summary: Register a credit payment for a client, applied to the oldest debts first
+      description: >
+        Reparte el abono entre las deudas del cliente (ventas a crédito y créditos
+        manuales) de la empresa indicada, ordenando de la más antigua a la más
+        reciente. Si el abono no alcanza, se divide entre varias deudas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientCreditPaymentInput"
+      responses:
+        "201":
+          description: Credit payment registered and split across the client's debts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCreditPaymentResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /sales/{id}/credit-payment:
     post:
       operationId: createCreditPayment
@@ -1360,6 +1384,59 @@ components:
           format: date-time
           description: Fecha del abono (por defecto ahora)
       required: [amount]
+    ClientCreditPaymentInput:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 1
+        clientId:
+          type: number
+          description: Id del cliente; si no se envía se busca por nombre
+        clientName:
+          type: string
+        paymentMethod:
+          type: string
+        note:
+          type: string
+        date:
+          type: string
+          format: date-time
+          description: Fecha del abono (por defecto ahora)
+      required: [amount]
+    ClientCreditPaymentAllocation:
+      type: object
+      properties:
+        debtId:
+          type: number
+        kind:
+          type: string
+          enum: [sale, manual]
+        label:
+          type: string
+        date:
+          type: string
+          format: date-time
+        amount:
+          type: number
+          description: Parte del abono que se aplicó a esta deuda
+        remainingAfter:
+          type: number
+          description: Saldo que queda en esta deuda
+      required: [debtId, kind, label, date, amount, remainingAfter]
+    ClientCreditPaymentResult:
+      type: object
+      properties:
+        totalApplied:
+          type: number
+        clientPending:
+          type: number
+          description: Saldo total pendiente del cliente en la empresa
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientCreditPaymentAllocation"
+      required: [totalApplied, clientPending, allocations]
     CreditPayment:
       type: object
       properties:

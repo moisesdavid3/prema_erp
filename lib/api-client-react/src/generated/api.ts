@@ -22,6 +22,8 @@ import type {
 import type {
   BadRequestResponse,
   Client,
+  ClientCreditPaymentInput,
+  ClientCreditPaymentResult,
   ClientInput,
   Company,
   CreditPayment,
@@ -1782,6 +1784,78 @@ export const useDeleteSale = <TError = ErrorType<BadRequestResponse | NotFoundRe
         TContext
       > => {
       return useMutation(getDeleteSaleMutationOptions(options));
+    }
+
+export const getCreateClientCreditPaymentUrl = () => {
+
+
+
+
+  return `/api/credit-payments`
+}
+
+/**
+ * Reparte el abono entre las deudas del cliente (ventas a crédito y créditos manuales) de la empresa indicada, ordenando de la más antigua a la más reciente. Si el abono no alcanza, se divide entre varias deudas.
+ * @summary Register a credit payment for a client, applied to the oldest debts first
+ */
+export const createClientCreditPayment = async (clientCreditPaymentInput: ClientCreditPaymentInput, options?: Parameters<typeof customFetch>[1]): Promise<ClientCreditPaymentResult> => {
+
+  return customFetch<ClientCreditPaymentResult>(getCreateClientCreditPaymentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientCreditPaymentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateClientCreditPaymentMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientCreditPayment>>, TError,{data: BodyType<ClientCreditPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClientCreditPayment>>, TError,{data: BodyType<ClientCreditPaymentInput>}, TContext> => {
+
+const mutationKey = ['createClientCreditPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClientCreditPayment>>, {data: BodyType<ClientCreditPaymentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createClientCreditPayment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClientCreditPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createClientCreditPayment>>>
+    export type CreateClientCreditPaymentMutationBody = BodyType<ClientCreditPaymentInput>
+    export type CreateClientCreditPaymentMutationError = ErrorType<BadRequestResponse>
+
+    /**
+ * @summary Register a credit payment for a client, applied to the oldest debts first
+ */
+export const useCreateClientCreditPayment = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientCreditPayment>>, TError,{data: BodyType<ClientCreditPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClientCreditPayment>>,
+        TError,
+        {data: BodyType<ClientCreditPaymentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateClientCreditPaymentMutationOptions(options));
     }
 
 export const getCreateCreditPaymentUrl = (id: number,) => {

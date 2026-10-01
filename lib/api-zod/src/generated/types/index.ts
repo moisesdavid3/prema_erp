@@ -8,6 +8,10 @@
 
 export * from './badRequestResponse';
 export * from './client';
+export * from './clientCreditPaymentAllocation';
+export * from './clientCreditPaymentAllocationKind';
+export * from './clientCreditPaymentInput';
+export * from './clientCreditPaymentResult';
 export * from './clientInput';
 export * from './company';
 export * from './creditPayment';

@@ -1,4 +1,6 @@
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import type { AnyColumn } from "drizzle-orm";
+import { allocateFifo, type FifoDebt } from "./credit-allocation";
 import {
   appSettingsTable,
   clientsTable,
@@ -309,6 +311,113 @@ async function creditPaidForSale(saleId: number): Promise<number> {
     .from(creditPaymentsTable)
     .where(eq(creditPaymentsTable.saleId, saleId));
   return Number(row?.total ?? 0);
+}
+
+/**
+ * Mirrors `carteraClientKey` on the frontend: sales are grouped by client id
+ * when they have one, and by normalized name otherwise.
+ */
+export function clientWhere(clientId: number | null, clientName: string, idColumn: AnyColumn, nameColumn: AnyColumn) {
+  if (clientId) return eq(idColumn, clientId);
+  return and(isNull(idColumn), sql`lower(trim(${nameColumn})) = ${clientName.trim().toLowerCase()}`);
+}
+
+/** Open debts (credit sales + manual credits) of a client inside one company, oldest first. */
+export async function openDebtsForClient(companyId: number, clientId: number | null, clientName: string): Promise<FifoDebt[]> {
+  const sales = await getDb().select().from(salesTable).where(and(
+    eq(salesTable.companyId, companyId),
+    eq(salesTable.paymentMethod, "Crédito"),
+    clientWhere(clientId, clientName, salesTable.clientId, salesTable.clientName),
+  ));
+  const manualCredits = await getDb().select().from(manualCreditsTable).where(and(
+    eq(manualCreditsTable.companyId, companyId),
+    clientWhere(clientId, clientName, manualCreditsTable.clientId, manualCreditsTable.clientName),
+  ));
+
+  const saleIds = sales.map((s) => s.id);
+  const manualIds = manualCredits.map((m) => m.id);
+  const [salePaid, manualPaid] = await Promise.all([
+    saleIds.length
+      ? getDb().select({ id: creditPaymentsTable.saleId, total: sql<number>`coalesce(sum(${creditPaymentsTable.amount}), 0)` })
+        .from(creditPaymentsTable).where(inArray(creditPaymentsTable.saleId, saleIds)).groupBy(creditPaymentsTable.saleId)
+      : Promise.resolve([]),
+    manualIds.length
+      ? getDb().select({ id: creditPaymentsTable.manualCreditId, total: sql<number>`coalesce(sum(${creditPaymentsTable.amount}), 0)` })
+        .from(creditPaymentsTable).where(inArray(creditPaymentsTable.manualCreditId, manualIds)).groupBy(creditPaymentsTable.manualCreditId)
+      : Promise.resolve([]),
+  ]);
+  const paidBySale = new Map(salePaid.map((r) => [Number(r.id), Number(r.total)]));
+  const paidByManual = new Map(manualPaid.map((r) => [Number(r.id), Number(r.total)]));
+
+  return [
+    ...sales.map((sale) => ({
+      id: sale.id,
+      kind: "sale" as const,
+      label: `Venta #${sale.saleNumber}`,
+      date: sale.createdAt.toISOString(),
+      pending: sale.total - (paidBySale.get(sale.id) ?? 0),
+    })),
+    ...manualCredits.map((credit) => ({
+      id: credit.id,
+      kind: "manual" as const,
+      label: "Crédito manual",
+      date: credit.createdAt.toISOString(),
+      pending: credit.total - (paidByManual.get(credit.id) ?? 0),
+    })),
+  ].filter((debt) => debt.pending > 0);
+}
+
+/**
+ * Registers one abono and splits it across the client's debts oldest-first,
+ * so a payment always clears the longest-standing debt instead of the newest.
+ * Rejects amounts larger than the total pending: paying more than the debt has
+ * no destination and used to create an unexplained "saldo a favor".
+ */
+export async function createFifoCreditPayment(params: {
+  companyId: number;
+  userId: string;
+  clientId: number | null;
+  clientName: string;
+  amount: number;
+  paymentMethod: string | null;
+  note: string | null;
+  date: Date | undefined;
+}) {
+  const debts = await openDebtsForClient(params.companyId, params.clientId, params.clientName);
+  const totalPending = debts.reduce((sum, debt) => sum + debt.pending, 0);
+  if (totalPending <= 0) throw new Error("Este cliente no tiene deuda pendiente en esta empresa.");
+  if (params.amount > totalPending) throw new Error(`El abono excede la deuda pendiente (${totalPending}).`);
+
+  const { allocations, leftover, stillPending } = allocateFifo(debts, params.amount);
+  if (leftover > 0) throw new Error(`El abono excede la deuda pendiente (${totalPending}).`);
+
+  const created = await getDb().transaction(async (tx) => {
+    const rows = await Promise.all(allocations.map((allocation) => tx.insert(creditPaymentsTable).values({
+      companyId: params.companyId,
+      userId: params.userId,
+      saleId: allocation.kind === "sale" ? allocation.id : null,
+      manualCreditId: allocation.kind === "manual" ? allocation.id : null,
+      amount: allocation.amount,
+      paymentMethod: params.paymentMethod,
+      note: params.note,
+      createdAt: params.date,
+    }).returning()));
+    return rows.flat();
+  });
+
+  return {
+    payments: created,
+    allocations: allocations.map(({ id, kind, label, date: debtDate, amount, remainingAfter }) => ({
+      debtId: id,
+      kind,
+      label,
+      date: debtDate,
+      amount,
+      remainingAfter,
+    })),
+    totalApplied: allocations.reduce((sum, allocation) => sum + allocation.amount, 0),
+    clientPending: stillPending,
+  };
 }
 
 export function toSaleResponse(sale: typeof salesTable.$inferSelect, items: typeof saleItemsTable.$inferSelect[], creditPaid: number) {

@@ -253,6 +253,44 @@ export interface CreditPaymentInput {
   date?: string;
 }
 
+export interface ClientCreditPaymentInput {
+  /** @minimum 1 */
+  amount: number;
+  /** Id del cliente; si no se envía se busca por nombre */
+  clientId?: number;
+  clientName?: string;
+  paymentMethod?: string;
+  note?: string;
+  /** Fecha del abono (por defecto ahora) */
+  date?: string;
+}
+
+export type ClientCreditPaymentAllocationKind = typeof ClientCreditPaymentAllocationKind[keyof typeof ClientCreditPaymentAllocationKind];
+
+
+export const ClientCreditPaymentAllocationKind = {
+  sale: 'sale',
+  manual: 'manual',
+} as const;
+
+export interface ClientCreditPaymentAllocation {
+  debtId: number;
+  kind: ClientCreditPaymentAllocationKind;
+  label: string;
+  date: string;
+  /** Parte del abono que se aplicó a esta deuda */
+  amount: number;
+  /** Saldo que queda en esta deuda */
+  remainingAfter: number;
+}
+
+export interface ClientCreditPaymentResult {
+  totalApplied: number;
+  /** Saldo total pendiente del cliente en la empresa */
+  clientPending: number;
+  allocations: ClientCreditPaymentAllocation[];
+}
+
 export interface CreditPayment {
   id: number;
   saleId: number;
