@@ -814,6 +814,7 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
     [target.allCompanies, target.debts],
   );
   const totalAllCompanies = companyTotals.reduce((sum, c) => sum + c.pending, 0);
+  const selectableCompanies = companyTotals.filter((c) => c.pending > 0 && target.companies.some((x) => x.companyId === c.companyId));
   const companyName = target.companies.find((c) => c.companyId === companyId)?.name || '';
 
   const submit = (e: React.FormEvent) => {
@@ -876,21 +877,9 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
           </button>
         </div>
         <div className="mt-6 grid gap-4">
-          {target.companies.length > 1 ? (
-            <div className="grid gap-1.5 text-sm font-semibold">
-              <label>Empresa</label>
-              <select value={companyId} onChange={(e) => setCompanyId(Number(e.target.value))} className="h-11 w-full rounded-xl border bg-[hsl(var(--card))] px-3 text-sm font-semibold outline-none focus:border-[hsl(var(--primary))]" data-testid="select-payment-company">
-                {target.companies.map((c) => <option key={c.companyId} value={c.companyId}>{c.name}</option>)}
-              </select>
-            </div>
-          ) : (
-            <div className="grid gap-1.5 text-sm font-semibold">
-              <label>Empresa</label>
-              <p className="rounded-xl bg-[hsl(var(--muted)/.4)] px-3 py-2.5 text-sm font-semibold" data-testid="text-payment-company">{target.companies[0]?.name}</p>
-            </div>
-          )}
           <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3 text-sm" data-testid="credit-company-balances">
             <p className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Saldo del cliente por empresa</p>
+            {selectableCompanies.length > 1 && <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">Toca la empresa donde quieres aplicar el abono.</p>}
             <div className="mt-2 grid gap-1.5">
               {companyTotals.map((c) => {
                 const selectable = c.pending > 0 && target.companies.some((x) => x.companyId === c.companyId);
