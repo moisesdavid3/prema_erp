@@ -1,4 +1,5 @@
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import { boolean, index, integer, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 
@@ -37,6 +38,10 @@ export const salesTable = pgTable("inventory_sales", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("inventory_sales_company_created_idx").on(t.companyId, t.createdAt),
+  // El consecutivo de venta es único por empresa y día de Bogotá. La base
+  // rechaza el duplicado si dos usuarios registran a la vez.
+  uniqueIndex("inventory_sales_company_day_number_uidx")
+    .on(t.companyId, sql`((${t.createdAt} at time zone 'America/Bogota')::date)`, t.saleNumber),
 ]).enableRLS();
 
 export const creditPaymentsTable = pgTable("inventory_credit_payments", {

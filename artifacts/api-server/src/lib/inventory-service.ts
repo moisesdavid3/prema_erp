@@ -233,6 +233,19 @@ export function endOfDayBogota(date: Date): Date {
   return bogotaDate(year, month, day, 23, 59, 59, 999);
 }
 
+/**
+ * Rebuilds a timestamp so it keeps the Bogota *calendar day* the client asked
+ * for but takes the clock from the server. Clients used to send their own
+ * `Date`, so a browser with a skewed clock or a foreign timezone could land the
+ * sale on a different day than the one the numbering was computed for.
+ */
+export function resolveBogotaInstant(date: Date | undefined): Date {
+  const requested = date ?? new Date();
+  const { year, month, day } = bogotaParts(requested);
+  const nowBogota = new Date(Date.now() - BOGOTA_OFFSET_MS);
+  return bogotaDate(year, month, day, nowBogota.getUTCHours(), nowBogota.getUTCMinutes(), nowBogota.getUTCSeconds());
+}
+
 export function dateRangeForPeriod(period: string, from?: Date, to?: Date): DateRange {
   const now = new Date();
   if (from || to) return { from, to };
@@ -496,7 +509,11 @@ export async function dashboardData(userId: string, companyId: number, userEmail
 
 export async function salesReportData(userId: string, companyId: number, userEmail: string | undefined, range: DateRange) {
   await ensureSeeded(userId);
-  const sales = await getDb().select().from(salesTable).where(saleWhere(companyId, range)).orderBy(sql`${salesTable.createdAt} desc`);
+  // Ordena por número de venta descendente (no por hora): tras las
+  // correcciones de los consecutivos, la hora y el número no siempre coinciden
+  // y el reporte debe leerse #31, #30, #29...
+  const sales = await getDb().select().from(salesTable).where(saleWhere(companyId, range))
+    .orderBy(sql`${salesTable.saleNumber} desc`, sql`${salesTable.createdAt} desc`);
   const saleIds = sales.map((s) => s.id);
   const items = saleIds.length
     ? await getDb().select().from(saleItemsTable).where(inArray(saleItemsTable.saleId, saleIds))

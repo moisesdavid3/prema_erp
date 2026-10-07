@@ -16,7 +16,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireCompany } from "../middlewares/requireCompany";
-import { dateRangeForPeriod, ensureSeeded, endOfDayBogota, resolveClient, saleResponse, saleWhere, startOfDayBogota, toSaleResponse } from "../lib/inventory-service";
+import { dateRangeForPeriod, ensureSeeded, endOfDayBogota, resolveBogotaInstant, resolveClient, saleResponse, saleWhere, startOfDayBogota, toSaleResponse } from "../lib/inventory-service";
 
 const router: IRouter = Router();
 router.use("/sales", requireAuth, requireCompany);
@@ -67,7 +67,7 @@ router.post("/sales", async (req, res): Promise<void> => {
     return;
   }
   const userId = req.userId!;
-  const saleDate = parsed.data.date ?? new Date();
+  const saleDate = resolveBogotaInstant(parsed.data.date);
   if (saleDate.getTime() > Date.now() + 60_000) {
     res.status(400).json({ error: "La fecha de la venta no puede ser futura." });
     return;
@@ -129,12 +129,15 @@ router.post("/sales", async (req, res): Promise<void> => {
     const finalTotal = total + deliveryCost;
     const dayStart = startOfDayBogota(saleDate);
     const dayEnd = endOfDayBogota(saleDate);
-    const [row] = await tx.select({ count: sql<number>`count(*)` }).from(salesTable)
+    // Serializes the numbering per company+day, so two users registering at the
+    // same time cannot read the same max and produce the same sale number.
+    await tx.execute(sql`select pg_advisory_xact_lock(${req.companyId!}, ${dayStart.getTime()})`);
+    const [row] = await tx.select({ max: sql<number | null>`coalesce(max(${salesTable.saleNumber}), 0)` }).from(salesTable)
       .where(and(eq(salesTable.companyId, req.companyId!), gte(salesTable.createdAt, dayStart), lt(salesTable.createdAt, dayEnd)));
     const [sale] = await tx.insert(salesTable).values({
       companyId: req.companyId!,
       userId,
-      saleNumber: Number(row?.count ?? 0) + 1,
+      saleNumber: Number(row?.max ?? 0) + 1,
       createdAt: saleDate,
       total: finalTotal,
       totalItems,
