@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
-import { clientsTable, companiesTable, creditPaymentsTable, getDb, inventoryMovementsTable, productsTable, saleItemsTable, salesTable } from "@workspace/db";
+import { clientsTable, creditPaymentsTable, getDb, inventoryMovementsTable, productsTable, saleItemsTable, salesTable } from "@workspace/db";
 import {
   CreateCreditPaymentBody,
   CreateCreditPaymentParams,
@@ -16,7 +16,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireCompany } from "../middlewares/requireCompany";
-import { dateRangeForPeriod, ensureSeeded, endOfDayBogota, resolveBogotaInstant, resolveClient, saleResponse, saleWhere, startOfDayBogota, toSaleResponse } from "../lib/inventory-service";
+import { bogotaDayKey, dateRangeForPeriod, ensureSeeded, endOfDayBogota, resolveBogotaInstant, resolveClient, saleResponse, saleWhere, startOfDayBogota, toSaleResponse } from "../lib/inventory-service";
 
 const router: IRouter = Router();
 router.use("/sales", requireAuth, requireCompany);
@@ -81,9 +81,6 @@ router.post("/sales", async (req, res): Promise<void> => {
     });
   }
 
-  const [company] = await getDb().select().from(companiesTable).where(eq(companiesTable.id, req.companyId!));
-  const allowNegative = !!company?.allowNegativeStock;
-
   const clientName = parsed.data.clientName?.trim() || null;
   const clientPhone = parsed.data.clientPhone?.trim() || null;
   let clientId = parsed.data.clientId ?? null;
@@ -102,9 +99,8 @@ router.post("/sales", async (req, res): Promise<void> => {
       const [product] = await tx.select().from(productsTable)
         .where(and(eq(productsTable.id, productId), eq(productsTable.companyId, req.companyId!)));
       if (!product) return { error: "No encontramos uno de los productos." as const };
-      if (!allowNegative && product.stock < lineReq.quantity) {
-        return { error: `Solo hay ${product.stock} unidades disponibles de ${product.name}.` as const, conflict: true as const };
-      }
+      // No se restringe la venta por existencias: si falta stock, queda en
+      // negativo y se corrige con una compra o una baja de inventario.
       products.push({ product, quantity: lineReq.quantity, unitPrice: lineReq.unitPrice });
     }
 
@@ -131,7 +127,9 @@ router.post("/sales", async (req, res): Promise<void> => {
     const dayEnd = endOfDayBogota(saleDate);
     // Serializes the numbering per company+day, so two users registering at the
     // same time cannot read the same max and produce the same sale number.
-    await tx.execute(sql`select pg_advisory_xact_lock(${req.companyId!}, ${dayStart.getTime()})`);
+    // pg_advisory_xact_lock takes a single bigint key; the two-argument form is
+    // (int4, int4) and overflows with a millisecond timestamp.
+    await tx.execute(sql`select pg_advisory_xact_lock((${req.companyId!}::bigint * 100000) + ${bogotaDayKey(saleDate)})`);
     const [row] = await tx.select({ max: sql<number | null>`coalesce(max(${salesTable.saleNumber}), 0)` }).from(salesTable)
       .where(and(eq(salesTable.companyId, req.companyId!), gte(salesTable.createdAt, dayStart), lt(salesTable.createdAt, dayEnd)));
     const [sale] = await tx.insert(salesTable).values({

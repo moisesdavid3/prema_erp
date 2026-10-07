@@ -233,6 +233,12 @@ export function endOfDayBogota(date: Date): Date {
   return bogotaDate(year, month, day, 23, 59, 59, 999);
 }
 
+/** Clave entera YYYYMMDD del día de Bogotá, para indexar por día. */
+export function bogotaDayKey(date: Date): number {
+  const { year, month, day } = bogotaParts(date);
+  return year * 10000 + (month + 1) * 100 + day;
+}
+
 /**
  * Rebuilds a timestamp so it keeps the Bogota *calendar day* the client asked
  * for but takes the clock from the server. Clients used to send their own
