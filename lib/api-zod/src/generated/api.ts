@@ -821,6 +821,55 @@ export const GetPurchaseResponse = zod.object({
 
 
 /**
+ * Reemplaza los items de la compra. El inventario se ajusta con la diferencia de cada producto: lo que entra o sale de la compra suma o resta stock, y el costo unitario nuevo actualiza el costo del producto.
+ * @summary Edit the products, quantities and costs of a purchase
+ */
+
+
+
+export const UpdatePurchaseParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+
+
+export const updatePurchaseBodyItemsItemUnitCostMin = 0;
+
+
+
+
+export const UpdatePurchaseBody = zod.object({
+  "supplier": zod.string().optional(),
+  "invoiceNumber": zod.string().optional(),
+  "purchaseDate": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "productId": zod.number().min(1),
+  "quantity": zod.number().min(1),
+  "unitCost": zod.number().min(updatePurchaseBodyItemsItemUnitCostMin)
+})).min(1).describe('Lista completa de items; los que se quiten se restan del inventario')
+})
+
+export const UpdatePurchaseResponse = zod.object({
+  "id": zod.number(),
+  "date": zod.coerce.date(),
+  "supplier": zod.string().nullish(),
+  "supplierId": zod.number().nullish().describe('ID del proveedor normalizado'),
+  "invoiceNumber": zod.string().nullish(),
+  "total": zod.number(),
+  "totalItems": zod.number(),
+  "items": zod.array(zod.object({
+  "productId": zod.number(),
+  "productName": zod.string(),
+  "productCode": zod.string().nullish().describe('Código del producto al momento de la compra'),
+  "content": zod.string().optional().describe('Contenido \/ presentación del producto al momento de la compra'),
+  "quantity": zod.number(),
+  "unitCost": zod.number(),
+  "subtotal": zod.number()
+}))
+})
+
+
+/**
  * @summary Delete a purchase and remove its items from inventory
  */
 

@@ -55,6 +55,7 @@ import type {
   PurchaseImportInput,
   PurchaseImportResult,
   PurchaseInput,
+  PurchaseUpdateInput,
   Sale,
   SaleInput,
   SalesReport,
@@ -2309,6 +2310,79 @@ export function useGetPurchase<TData = Awaited<ReturnType<typeof getPurchase>>, 
 
 
 
+
+export const getUpdatePurchaseUrl = (id: number,) => {
+
+
+
+
+  return `/api/purchases/${id}`
+}
+
+/**
+ * Reemplaza los items de la compra. El inventario se ajusta con la diferencia de cada producto: lo que entra o sale de la compra suma o resta stock, y el costo unitario nuevo actualiza el costo del producto.
+ * @summary Edit the products, quantities and costs of a purchase
+ */
+export const updatePurchase = async (id: number,
+    purchaseUpdateInput: PurchaseUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<Purchase> => {
+
+  return customFetch<Purchase>(getUpdatePurchaseUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(purchaseUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePurchaseMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePurchase>>, TError,{id: number;data: BodyType<PurchaseUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePurchase>>, TError,{id: number;data: BodyType<PurchaseUpdateInput>}, TContext> => {
+
+const mutationKey = ['updatePurchase'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePurchase>>, {id: number;data: BodyType<PurchaseUpdateInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePurchase(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePurchaseMutationResult = NonNullable<Awaited<ReturnType<typeof updatePurchase>>>
+    export type UpdatePurchaseMutationBody = BodyType<PurchaseUpdateInput>
+    export type UpdatePurchaseMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Edit the products, quantities and costs of a purchase
+ */
+export const useUpdatePurchase = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePurchase>>, TError,{id: number;data: BodyType<PurchaseUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePurchase>>,
+        TError,
+        {id: number;data: BodyType<PurchaseUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdatePurchaseMutationOptions(options));
+    }
 
 export const getDeletePurchaseUrl = (id: number,) => {
 

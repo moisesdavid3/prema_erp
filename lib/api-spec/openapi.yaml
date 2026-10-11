@@ -657,6 +657,38 @@ paths:
                 $ref: "#/components/schemas/Purchase"
         "404":
           $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updatePurchase
+      tags: [purchases]
+      summary: Edit the products, quantities and costs of a purchase
+      description: >
+        Reemplaza los items de la compra. El inventario se ajusta con la
+        diferencia de cada producto: lo que entra o sale de la compra suma o
+        resta stock, y el costo unitario nuevo actualiza el costo del producto.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseUpdateInput"
+      responses:
+        "200":
+          description: Purchase updated and inventory adjusted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
     delete:
       operationId: deletePurchase
       tags: [purchases]
@@ -1570,6 +1602,23 @@ components:
         items:
           type: array
           minItems: 1
+          items:
+            $ref: "#/components/schemas/PurchaseItemInput"
+      required: [items]
+    PurchaseUpdateInput:
+      type: object
+      properties:
+        supplier:
+          type: string
+        invoiceNumber:
+          type: string
+        purchaseDate:
+          type: string
+          format: date-time
+        items:
+          type: array
+          minItems: 1
+          description: Lista completa de items; los que se quiten se restan del inventario
           items:
             $ref: "#/components/schemas/PurchaseItemInput"
       required: [items]

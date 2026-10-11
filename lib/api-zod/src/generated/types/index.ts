@@ -53,6 +53,7 @@ export * from './purchaseImportRow';
 export * from './purchaseInput';
 export * from './purchaseItem';
 export * from './purchaseItemInput';
+export * from './purchaseUpdateInput';
 export * from './sale';
 export * from './saleInput';
 export * from './saleItem';

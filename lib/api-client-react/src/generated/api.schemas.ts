@@ -386,6 +386,17 @@ export interface PurchaseInput {
   items: PurchaseItemInput[];
 }
 
+export interface PurchaseUpdateInput {
+  supplier?: string;
+  invoiceNumber?: string;
+  purchaseDate?: string;
+  /**
+     * Lista completa de items; los que se quiten se restan del inventario
+     * @minItems 1
+     */
+  items: PurchaseItemInput[];
+}
+
 export interface PurchaseItem {
   productId: number;
   productName: string;

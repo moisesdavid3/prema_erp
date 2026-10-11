@@ -6,6 +6,9 @@ import {
   CreatePurchaseResponse,
   GetPurchaseParams,
   GetPurchaseResponse,
+  UpdatePurchaseBody,
+  UpdatePurchaseParams,
+  UpdatePurchaseResponse,
   ImportPurchasesBody,
   ImportPurchasesResponse,
   ListPurchasesResponse,
@@ -262,6 +265,102 @@ router.delete("/purchases/:id", async (req, res): Promise<void> => {
     return;
   }
   res.sendStatus(204);
+});
+
+router.patch("/purchases/:id", async (req, res): Promise<void> => {
+  const params = UpdatePurchaseParams.safeParse(req.params);
+  const parsed = UpdatePurchaseBody.safeParse(req.body);
+  if (!params.success || !parsed.success) {
+    res.status(400).json({ error: "Revisa los datos de la compra." });
+    return;
+  }
+
+  const updated = await getDb().transaction(async (tx) => {
+    const [purchase] = await tx.select().from(purchasesTable)
+      .where(and(eq(purchasesTable.id, params.data.id), eq(purchasesTable.companyId, req.companyId!)));
+    if (!purchase) return { error: "No encontramos esa compra." as const, status: 404 as const };
+
+    // Se pide la lista completa: lo que no venga se quita de la compra.
+    const requested = new Map<number, { quantity: number; unitCost: number }>();
+    for (const line of parsed.data.items) {
+      const found = requested.get(line.productId);
+      if (found) {
+        found.quantity += line.quantity;
+        found.unitCost = Math.round((found.unitCost + line.unitCost) / 2);
+        continue;
+      }
+      requested.set(line.productId, { quantity: line.quantity, unitCost: line.unitCost });
+    }
+
+    const currentItems = await tx.select().from(purchaseItemsTable).where(eq(purchaseItemsTable.purchaseId, purchase.id));
+
+    // Producto + diferencia de unidades: lo que sale de la compra resta stock.
+    const delta = new Map<number, number>();
+    for (const item of currentItems) delta.set(item.productId, (delta.get(item.productId) ?? 0) - item.quantity);
+    for (const [productId, line] of requested) delta.set(productId, (delta.get(productId) ?? 0) + line.quantity);
+
+    for (const [productId, change] of delta) {
+      if (change === 0) continue;
+      const [product] = await tx.select().from(productsTable)
+        .where(and(eq(productsTable.id, productId), eq(productsTable.companyId, req.companyId!)));
+      if (!product) return { error: "No encontramos uno de los productos." as const, status: 400 as const };
+      const stockAfter = product.stock + change;
+      const line = requested.get(productId);
+      await tx.update(productsTable).set({
+        stock: stockAfter,
+        // El costo nuevo solo aplica si el producto sigue en la compra.
+        ...(line ? { cost: Math.round(line.unitCost) } : {}),
+        updatedAt: new Date(),
+      }).where(eq(productsTable.id, product.id));
+      await tx.insert(inventoryMovementsTable).values({
+        companyId: req.companyId!,
+        userId: req.userId!,
+        productId: product.id,
+        type: "compra",
+        quantity: change,
+        stockBefore: product.stock,
+        stockAfter,
+        note: `Compra #${purchase.id} corregida${purchase.invoiceNumber ? ` · Factura ${purchase.invoiceNumber}` : ""}`,
+      });
+    }
+
+    await tx.delete(purchaseItemsTable).where(eq(purchaseItemsTable.purchaseId, purchase.id));
+    const products = await tx.select().from(productsTable).where(eq(productsTable.companyId, req.companyId!));
+    const byId = new Map(products.map((p) => [p.id, p]));
+    await tx.insert(purchaseItemsTable).values([...requested.entries()].map(([productId, line]) => {
+      const product = byId.get(productId)!;
+      return {
+        purchaseId: purchase.id,
+        productId,
+        productName: product.name,
+        productCode: product.code,
+        productContent: product.content,
+        quantity: line.quantity,
+        unitCost: Math.round(line.unitCost),
+        subtotal: Math.round(line.unitCost) * line.quantity,
+      };
+    }));
+
+    const items = [...requested.values()];
+    const [saved] = await tx.update(purchasesTable).set({
+      supplier: parsed.data.supplier?.trim() || purchase.supplier,
+      invoiceNumber: parsed.data.invoiceNumber?.trim() || purchase.invoiceNumber,
+      purchaseDate: parsed.data.purchaseDate ? new Date(parsed.data.purchaseDate) : purchase.purchaseDate,
+      total: items.reduce((sum, i) => sum + Math.round(i.unitCost) * i.quantity, 0),
+      totalItems: items.reduce((sum, i) => sum + i.quantity, 0),
+    }).where(eq(purchasesTable.id, purchase.id)).returning();
+    return { purchase: saved };
+  });
+
+  if ("error" in updated) {
+    res.status(updated.status ?? 400).json({ error: updated.error });
+    return;
+  }
+  if (!updated.purchase) {
+    res.status(500).json({ error: "No pudimos guardar los cambios de la compra." });
+    return;
+  }
+  res.json(UpdatePurchaseResponse.parse(await purchaseResponse(updated.purchase)));
 });
 
 export default router;
