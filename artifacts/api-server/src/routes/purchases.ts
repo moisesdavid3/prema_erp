@@ -98,6 +98,9 @@ router.post("/purchases", async (req, res): Promise<void> => {
         quantity,
         stockBefore: product.stock,
         stockAfter: nextStock,
+        // La compra manda: el movimiento se fecha con la fecha de la factura,
+        // aunque se digite días después.
+        createdAt: purchase.purchaseDate,
         note: `Compra #${purchase.id}${parsed.data.invoiceNumber ? ` · Factura ${parsed.data.invoiceNumber}` : ""}`,
       });
     }
@@ -194,6 +197,7 @@ router.post("/purchases/import", async (req, res): Promise<void> => {
         quantity,
         stockBefore: product.stock,
         stockAfter: nextStock,
+        createdAt: purchase.purchaseDate,
         note: `Compra #${purchase.id}${parsed.data.invoiceNumber ? ` · Factura ${parsed.data.invoiceNumber}` : ""}`,
       });
     }
@@ -279,6 +283,7 @@ router.patch("/purchases/:id", async (req, res): Promise<void> => {
     const [purchase] = await tx.select().from(purchasesTable)
       .where(and(eq(purchasesTable.id, params.data.id), eq(purchasesTable.companyId, req.companyId!)));
     if (!purchase) return { error: "No encontramos esa compra." as const, status: 404 as const };
+    const newPurchaseDate = parsed.data.purchaseDate ? new Date(parsed.data.purchaseDate) : purchase.purchaseDate;
 
     // Se pide la lista completa: lo que no venga se quita de la compra.
     const requested = new Map<number, { quantity: number; unitCost: number }>();
@@ -320,6 +325,7 @@ router.patch("/purchases/:id", async (req, res): Promise<void> => {
         quantity: change,
         stockBefore: product.stock,
         stockAfter,
+        createdAt: newPurchaseDate,
         note: `Compra #${purchase.id} corregida${purchase.invoiceNumber ? ` · Factura ${purchase.invoiceNumber}` : ""}`,
       });
     }
@@ -345,7 +351,7 @@ router.patch("/purchases/:id", async (req, res): Promise<void> => {
     const [saved] = await tx.update(purchasesTable).set({
       supplier: parsed.data.supplier?.trim() || purchase.supplier,
       invoiceNumber: parsed.data.invoiceNumber?.trim() || purchase.invoiceNumber,
-      purchaseDate: parsed.data.purchaseDate ? new Date(parsed.data.purchaseDate) : purchase.purchaseDate,
+      purchaseDate: newPurchaseDate,
       total: items.reduce((sum, i) => sum + Math.round(i.unitCost) * i.quantity, 0),
       totalItems: items.reduce((sum, i) => sum + i.quantity, 0),
     }).where(eq(purchasesTable.id, purchase.id)).returning();

@@ -45,7 +45,7 @@ function stockoutResponse(stockout: StockoutRow, items: StockoutItemRow[]) {
   return { id: stockout.id, date: stockout.stockoutDate, totalUnits, totalValue, items: items.map(stockoutItemResponse) };
 }
 
-async function recordMovement(tx: any, companyId: number, userId: string, product: ProductRow, delta: number, note?: string) {
+async function recordMovement(tx: any, companyId: number, userId: string, product: ProductRow, delta: number, note?: string, createdAt?: Date) {
   await tx.insert(inventoryMovementsTable).values({
     companyId,
     userId,
@@ -54,6 +54,7 @@ async function recordMovement(tx: any, companyId: number, userId: string, produc
     quantity: -delta,
     stockBefore: product.stock,
     stockAfter: product.stock - delta,
+    ...(createdAt ? { createdAt } : {}),
     note: note ?? null,
   });
 }
@@ -113,7 +114,7 @@ router.post("/stockouts", async (req, res): Promise<void> => {
       await tx.update(productsTable)
         .set({ stock: product.stock - item.quantity, updatedAt: new Date() })
         .where(eq(productsTable.id, product.id));
-      await recordMovement(tx, req.companyId!, product.userId, product, item.quantity, item.note?.trim() || undefined);
+      await recordMovement(tx, req.companyId!, product.userId, product, item.quantity, item.note?.trim() || undefined, stockout.stockoutDate);
       const [row] = await tx.insert(stockoutItemsTable).values({
         stockoutId: stockout.id,
         productId: product.id,

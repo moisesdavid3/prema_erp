@@ -162,6 +162,9 @@ router.post("/sales", async (req, res): Promise<void> => {
         quantity: -quantity,
         stockBefore: product.stock,
         stockAfter: nextStock,
+        // El movimiento lleva la fecha de la venta, no la del momento en que se
+        // digita: una venta retroactiva debe quedar en su día, no en el de hoy.
+        createdAt: saleDate,
         note: `Venta #${sale.saleNumber}`,
       });
     }
