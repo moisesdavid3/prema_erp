@@ -10,9 +10,9 @@ import { supabase } from '@/lib/supabase';
 import { CompanyProvider, useCompany } from '@/lib/company';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useRoute } from 'wouter';
 import {
-  getGetDashboardQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createClientCreditPayment, useUpdatePurchase,
+  getGetDashboardQueryKey, getGetProductMovementsQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createClientCreditPayment, useUpdatePurchase,
   useAddInventory,   useCreateClient, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem,
-  useGetDashboard, useGetInventoryReport, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
+  useGetDashboard, useGetInventoryReport, useGetProductMovements, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
   useUpdateClient, useUpdateDeudaMoises, useUpdateProduct, useUpdateSupplier, useDeleteSupplier
 } from '@workspace/api-client-react';
 import type { Client, CreditPayment, ManualCredit, PaymentActivity, Product, Purchase, PurchaseImportResult, PurchaseInput, Sale, Stockout, StockoutItem, SupplierSummary } from '@workspace/api-client-react';
@@ -360,6 +360,75 @@ function InventoryModal({ product, onClose }: { product: Product; onClose: () =>
   return <div className="fixed inset-0 z-50 grid place-items-center bg-[hsl(var(--foreground)/.45)] p-4"><form onSubmit={submit} className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border bg-[hsl(var(--card))] p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="font-mono-app text-[10px] uppercase tracking-[.16em] text-[hsl(var(--primary))]">Agregar inventario</p><h2 className="mt-1 font-display text-3xl font-bold">{product.name}</h2><p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Ahora tienes <b>{product.stock} unidades</b>.</p></div><button type="button" onClick={onClose} className="p-2" data-testid="button-close-inventory-modal"><X size={20} /></button></div><div className="mt-6 grid gap-4"><Field label="¿Cuántas unidades llegaron?" type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="10" autoFocus data-testid="input-inventory-quantity" /><Field label="Fecha de la entrada" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-inventory-date" /><Field label="Nota (opcional)" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Por ejemplo: compra del martes" data-testid="input-inventory-note" /></div>{error && <p className="mt-4 text-sm text-[hsl(var(--destructive))]" data-testid="status-inventory-error">{error}</p>}<div className="mt-7 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={onClose} data-testid="button-cancel-inventory">Cancelar</Button><Button type="submit" disabled={add.isPending} data-testid="button-save-inventory">{add.isPending ? 'Actualizando…' : 'Sumar al inventario'}</Button></div></form></div>;
 }
 
+const MOVEMENT_LABELS: Record<string, string> = { compra: 'Compra', compra_anulada: 'Compra anulada', venta: 'Venta', venta_anulada: 'Venta anulada', ajuste: 'Ajuste', entrada: 'Entrada', salida: 'Baja' };
+const movementDateFmt = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Bogota' });
+
+function ProductMovementsModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const today = toLocalDateString(new Date());
+  const [from, setFrom] = useState(() => { const d = new Date(); return toLocalDateString(new Date(d.getFullYear(), d.getMonth(), 1)); });
+  const [to, setTo] = useState(today);
+  const validRange = !!from && !!to && from <= to;
+  const report = useGetProductMovements(product.id, { from, to }, { query: { queryKey: getGetProductMovementsQueryKey(product.id, { from, to }), enabled: validRange } });
+  const movements = report.data?.movements ?? [];
+  const entries = movements.filter((m) => m.quantity > 0).reduce((sum, m) => sum + m.quantity, 0);
+  const exits = movements.filter((m) => m.quantity < 0).reduce((sum, m) => sum + m.quantity, 0);
+  const title = [product.name, product.content].filter(Boolean).join(' x ');
+  const buildRows = () => {
+    const rows: (string | number)[][] = [['Fecha', 'Tipo', 'Cantidad', 'Saldo', 'Detalle']];
+    rows.push([`Saldo inicial al ${from}`, '', '', report.data?.openingStock ?? 0, '']);
+    for (const m of movements) rows.push([movementDateFmt.format(new Date(m.date)), MOVEMENT_LABELS[m.type] ?? m.type, m.quantity, m.balance, m.note || '']);
+    rows.push([`Saldo final al ${to}`, '', '', report.data?.closingStock ?? 0, '']);
+    return rows;
+  };
+  const fileBase = `movimientos-${(product.code || String(product.id)).toLowerCase()}-${from}-a-${to}`;
+  const exportCsv = () => downloadBlob(new Blob([toCsv(buildRows())], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`);
+  const exportXlsx = () => { buildXlsxBlob(buildRows()).then((blob) => downloadBlob(blob, `${fileBase}.xlsx`)); };
+  const dateInputClass = 'h-11 w-full rounded-xl border bg-[hsl(var(--card))] px-3.5 font-normal outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary)/.15)]';
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-[hsl(var(--foreground)/.45)] p-4" role="dialog" aria-modal="true">
+    <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border bg-[hsl(var(--card))] shadow-2xl">
+      <div className="flex items-start justify-between border-b p-5">
+        <div className="min-w-0">
+          <p className="font-mono-app text-[10px] uppercase tracking-[.16em] text-[hsl(var(--primary))]">Movimientos del producto</p>
+          <h2 className="mt-1 font-display text-3xl font-bold">{title}</h2>
+          <p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">{product.code ? `${product.code} · ` : ''}Existencia actual <b>{product.stock}</b>. Elige el rango de fechas para ver sus entradas y salidas.</p>
+        </div>
+        <button type="button" onClick={onClose} className="rounded-lg p-2 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]" data-testid="button-close-product-movements-modal"><X size={20} /></button>
+      </div>
+      <div className="flex flex-col gap-3 border-b bg-[hsl(var(--muted)/.3)] p-5 sm:flex-row sm:items-end">
+        <label className="grid gap-1.5 text-sm font-semibold sm:w-44"><span>Desde</span><input type="date" max={to || today} value={from} onChange={(e) => setFrom(e.target.value)} className={dateInputClass} data-testid="input-movements-from" /></label>
+        <label className="grid gap-1.5 text-sm font-semibold sm:w-44"><span>Hasta</span><input type="date" min={from} max={today} value={to} onChange={(e) => setTo(e.target.value)} className={dateInputClass} data-testid="input-movements-to" /></label>
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <Button type="button" variant="secondary" className="min-h-[40px] px-3 text-sm" onClick={exportCsv} disabled={!report.data} data-testid="button-export-movements-csv"><Download size={15} /> CSV</Button>
+          <Button type="button" variant="secondary" className="min-h-[40px] px-3 text-sm" onClick={exportXlsx} disabled={!report.data} data-testid="button-export-movements-xlsx"><Download size={15} /> XLSX</Button>
+        </div>
+      </div>
+      {validRange && report.data && <div className="grid grid-cols-2 gap-3 border-b p-5 sm:grid-cols-4">
+        <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3"><p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Saldo inicial</p><p className="mt-1 font-mono-app text-xl font-bold" data-testid="text-movements-opening">{report.data.openingStock}</p></div>
+        <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3"><p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Entradas</p><p className="mt-1 font-mono-app text-xl font-bold">+{entries}</p></div>
+        <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3"><p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Salidas</p><p className="mt-1 font-mono-app text-xl font-bold">{exits}</p></div>
+        <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3"><p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Saldo final</p><p className="mt-1 font-mono-app text-xl font-bold" data-testid="text-movements-closing">{report.data.closingStock}</p></div>
+      </div>}
+      <div className="min-h-0 flex-1 overflow-auto p-5">
+        {!validRange ? <StatusMessage type="empty" text="Elige un rango de fechas válido: «Desde» no puede ser posterior a «Hasta»." /> :
+          report.isLoading ? <div className="grid gap-3">{[1, 2, 3, 4].map((n) => <div key={n} className="h-12 animate-pulse rounded-2xl bg-[hsl(var(--muted))]" />)}</div> :
+            report.isError ? <StatusMessage text="No pudimos cargar los movimientos." onRetry={() => report.refetch()} /> :
+              movements.length === 0 ? <StatusMessage type="empty" text="Este producto no tiene movimientos en ese rango de fechas." /> :
+                <div className="overflow-hidden rounded-2xl border">
+                  <div className="hidden gap-4 border-b bg-[hsl(var(--muted)/.4)] px-5 py-3 font-mono-app text-sm font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))] md:grid md:grid-cols-[150px_150px_80px_80px_1fr]"><span>Fecha</span><span>Tipo</span><span>Cantidad</span><span>Saldo</span><span>Detalle</span></div>
+                  {movements.map((m) => <div key={m.id} className="border-b p-4 last:border-0 md:grid md:grid-cols-[150px_150px_80px_80px_1fr] md:items-center md:gap-4 md:px-5 md:py-3" data-testid={`row-movement-${m.id}`}>
+                    <p className="text-sm">{movementDateFmt.format(new Date(m.date))}</p>
+                    <p className="mt-1 text-sm font-semibold md:mt-0">{MOVEMENT_LABELS[m.type] ?? m.type}</p>
+                    <p className={`mt-1 font-mono-app text-sm font-bold md:mt-0 ${m.quantity < 0 ? 'text-[hsl(var(--destructive))]' : ''}`}>{m.quantity > 0 ? `+${m.quantity}` : m.quantity}</p>
+                    <p className="mt-1 font-mono-app text-sm md:mt-0"><span className="text-xs text-[hsl(var(--muted-foreground))] md:hidden">Saldo: </span>{m.balance}</p>
+                    <p className="mt-1 break-words text-xs text-[hsl(var(--muted-foreground))] md:mt-0">{m.note || '—'}</p>
+                  </div>)}
+                </div>}
+      </div>
+      <div className="flex justify-end border-t p-5"><Button type="button" variant="ghost" onClick={onClose} data-testid="button-close-product-movements">Cerrar</Button></div>
+    </div>
+  </div>;
+}
+
 function InventoryAsOfModal({ onClose, activeCompanyId }: { onClose: () => void; activeCompanyId?: number }) {
   const [asOf, setAsOf] = useState(() => toLocalDateString(new Date()));
   const report = useGetInventoryReport({ filter: 'all', asOf });
@@ -427,7 +496,7 @@ function InventoryAsOfModal({ onClose, activeCompanyId }: { onClose: () => void;
 }
 
 function Products() {
-  const products = useListProducts(); const supplierList = useListSuppliers(); const qc = useQueryClient(); const { activeCompany } = useCompany(); const isPrema = activeCompany?.id === 2; const isTere = activeCompany?.id === 1; const [search, setSearch] = useState(''); const [sort, setSort] = useState('name'); const [supplier, setSupplier] = useState('all'); const [category, setCategory] = useState('all'); const [status, setStatus] = useState('all'); const [activeFilter, setActiveFilter] = useState<'active' | 'inactive' | 'all'>('active'); const [modal, setModal] = useState<'new' | Product | null>(null); const [inventory, setInventory] = useState<Product | null>(null); const [stockoutModal, setStockoutModal] = useState(false); const [inventoryReportModal, setInventoryReportModal] = useState(false);
+  const products = useListProducts(); const supplierList = useListSuppliers(); const qc = useQueryClient(); const { activeCompany } = useCompany(); const isPrema = activeCompany?.id === 2; const isTere = activeCompany?.id === 1; const [search, setSearch] = useState(''); const [sort, setSort] = useState('name'); const [supplier, setSupplier] = useState('all'); const [category, setCategory] = useState('all'); const [status, setStatus] = useState('all'); const [activeFilter, setActiveFilter] = useState<'active' | 'inactive' | 'all'>('active'); const [modal, setModal] = useState<'new' | Product | null>(null); const [inventory, setInventory] = useState<Product | null>(null); const [movementsProduct, setMovementsProduct] = useState<Product | null>(null); const [stockoutModal, setStockoutModal] = useState(false); const [inventoryReportModal, setInventoryReportModal] = useState(false);
   const suppliers = useMemo(() => supplierOptions((supplierList.data || []).map((s) => s.name), (products.data || []).map((p) => p.supplier)), [supplierList.data, products.data]);
   const supplierCodeById = useMemo(() => {
     const m = new Map<number, string>();
@@ -479,8 +548,9 @@ function Products() {
             </div>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 md:hidden">
+        <div className="mt-4 grid grid-cols-3 gap-2 md:hidden">
           <Button variant="secondary" className="min-h-[26px] px-1.5 text-sm" onClick={() => setInventory(p)} data-testid={`button-add-inventory-${p.id}`}><PackagePlus size={13} /> Agregar</Button>
+          <Button variant="secondary" className="min-h-[26px] px-1.5 text-sm" onClick={() => setMovementsProduct(p)} data-testid={`button-movements-${p.id}`}><History size={13} /> Movim.</Button>
           <Button variant="ghost" className="min-h-[26px] px-1.5 text-sm !bg-[hsl(var(--muted))] !text-[hsl(var(--foreground))]" onClick={() => setModal(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={13} /> Editar</Button>
         </div>
           <div className="hidden md:block"><span className="text-xl font-bold">{p.stock}</span></div>
@@ -488,11 +558,12 @@ function Products() {
           {!isPrema && <span className={`hidden w-fit rounded-full px-2.5 py-1 text-xs font-bold md:block ${badgeClass}`}>{low ? 'Por surtir' : 'En existencia'}</span>}
           <div className="hidden flex-col gap-2 md:flex">
             <Button variant="secondary" className="w-full min-h-[26px] px-1.5 text-sm" onClick={() => setInventory(p)} data-testid={`button-add-inventory-${p.id}`}><PackagePlus size={13} /> Agregar</Button>
+            <Button variant="secondary" className="w-full min-h-[26px] px-1.5 text-sm" onClick={() => setMovementsProduct(p)} data-testid={`button-movements-${p.id}-desktop`}><History size={13} /> Movimientos</Button>
             <Button variant="ghost" className="w-full min-h-[26px] px-1.5 text-sm !bg-[hsl(var(--muted))] !text-[hsl(var(--foreground))]" onClick={() => setModal(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={13} /> Editar</Button>
           </div>
         </div>;
       })}</div>}
-    {modal && <ProductModal product={modal === 'new' ? undefined : modal} onClose={() => setModal(null)} />}{inventory && <InventoryModal product={inventory} onClose={() => setInventory(null)} />}{stockoutModal && <StockoutModal onClose={() => setStockoutModal(false)} />}{inventoryReportModal && <InventoryAsOfModal onClose={() => setInventoryReportModal(false)} activeCompanyId={activeCompany?.id} />}
+    {modal && <ProductModal product={modal === 'new' ? undefined : modal} onClose={() => setModal(null)} />}{inventory && <InventoryModal product={inventory} onClose={() => setInventory(null)} />}{movementsProduct && <ProductMovementsModal product={movementsProduct} onClose={() => setMovementsProduct(null)} />}{stockoutModal && <StockoutModal onClose={() => setStockoutModal(false)} />}{inventoryReportModal && <InventoryAsOfModal onClose={() => setInventoryReportModal(false)} activeCompanyId={activeCompany?.id} />}
   </Shell>;
 }
 

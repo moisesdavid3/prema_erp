@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, gte, lt, lte, sql } from "drizzle-orm";
 import { getDb, inventoryMovementsTable, inventoryUserSettingsTable, productsTable } from "@workspace/db";
 import {
   AddInventoryBody,
@@ -7,6 +7,8 @@ import {
   AddInventoryResponse,
   CreateProductBody,
   CreateProductResponse,
+  GetProductMovementsParams,
+  GetProductMovementsResponse,
   ListProductsResponse,
   UpdateDeudaMoisesBody,
   UpdateProductBody,
@@ -18,12 +20,14 @@ import { requireCompany } from "../middlewares/requireCompany";
 import {
   ensureSeeded,
   deleteProduct,
+  endOfDayBogota,
   isOwner,
   listAllProducts,
   nextProductCode,
   productResponse,
   resolveSupplier,
   resolveUserIdByEmail,
+  startOfDayBogota,
   TERE_EMAIL,
 } from "../lib/inventory-service";
 
@@ -35,6 +39,53 @@ router.get("/products", async (req, res): Promise<void> => {
   await ensureSeeded(userId);
   const rows = await listAllProducts(req.companyId!);
   res.json(ListProductsResponse.parse(rows.map(productResponse)));
+});
+
+router.get("/products/:id/movements", async (req, res): Promise<void> => {
+  const params = GetProductMovementsParams.safeParse(req.params);
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  const fromStr = typeof req.query.from === "string" ? req.query.from : undefined;
+  const toStr = typeof req.query.to === "string" ? req.query.to : undefined;
+  if (!params.success || (fromStr && !dateRe.test(fromStr)) || (toStr && !dateRe.test(toStr))) {
+    res.status(400).json({ error: "Revisa el producto y las fechas (formato AAAA-MM-DD)." });
+    return;
+  }
+  const from = fromStr ? startOfDayBogota(new Date(`${fromStr}T12:00:00-05:00`)) : undefined;
+  const to = toStr ? endOfDayBogota(new Date(`${toStr}T12:00:00-05:00`)) : undefined;
+  if ((fromStr && Number.isNaN(from!.getTime())) || (toStr && Number.isNaN(to!.getTime())) || (from && to && from > to)) {
+    res.status(400).json({ error: "El rango de fechas no es válido." });
+    return;
+  }
+  const db = getDb();
+  const [product] = await db.select().from(productsTable)
+    .where(and(eq(productsTable.id, params.data.id), eq(productsTable.companyId, req.companyId!)));
+  if (!product) {
+    res.status(404).json({ error: "No encontramos ese producto." });
+    return;
+  }
+  const scope = and(
+    eq(inventoryMovementsTable.companyId, req.companyId!),
+    eq(inventoryMovementsTable.productId, product.id),
+  );
+  // Saldo inicial = suma de los movimientos anteriores al rango. Se recalcula en orden
+  // cronológico porque stock_before/stock_after quedan desordenados con fechas retroactivas.
+  let openingStock = 0;
+  if (from) {
+    const [row] = await db
+      .select({ total: sql<number>`coalesce(sum(${inventoryMovementsTable.quantity}), 0)::int` })
+      .from(inventoryMovementsTable)
+      .where(and(scope, lt(inventoryMovementsTable.createdAt, from)));
+    openingStock = Number(row?.total ?? 0);
+  }
+  const rows = await db.select().from(inventoryMovementsTable)
+    .where(and(scope, from ? gte(inventoryMovementsTable.createdAt, from) : undefined, to ? lte(inventoryMovementsTable.createdAt, to) : undefined))
+    .orderBy(asc(inventoryMovementsTable.createdAt), asc(inventoryMovementsTable.id));
+  let balance = openingStock;
+  const movements = rows.map((m) => {
+    balance += m.quantity;
+    return { id: m.id, date: m.createdAt, type: m.type, quantity: m.quantity, balance, note: m.note };
+  });
+  res.json(GetProductMovementsResponse.parse({ product: productResponse(product), openingStock, closingStock: balance, movements }));
 });
 
 router.post("/products", async (req, res): Promise<void> => {

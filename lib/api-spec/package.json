@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "codegen": "orval --config ./orval.config.ts && node -e \"const fs=require('fs');const f='../api-zod/src/generated/types/index.ts';let c=fs.readFileSync(f,'utf8');c=c.split('\\n').filter(l=>!l.includes('patchSale')).join('\\n');fs.writeFileSync(f,c);\" && pnpm -w run typecheck:libs"
+    "codegen": "orval --config ./orval.config.ts && node -e \"const fs=require('fs');const f='../api-zod/src/generated/types/index.ts';let c=fs.readFileSync(f,'utf8');c=c.split('\\n').filter(l=>!l.includes('patchSale')&&!l.includes('getProductMovementsParams')).join('\\n');fs.writeFileSync(f,c);\" && pnpm -w run typecheck:libs"
   },
   "devDependencies": {
     "orval": "^8.23.0"

@@ -34,6 +34,7 @@ import type {
   DeudaMoisesInput,
   Error,
   GetInventoryReportParams,
+  GetProductMovementsParams,
   GetSalesReportParams,
   HealthStatus,
   InventoryInput,
@@ -50,6 +51,7 @@ import type {
   PatchSaleDetailsBody,
   Product,
   ProductInput,
+  ProductMovements,
   ProductUpdate,
   Purchase,
   PurchaseImportInput,
@@ -1192,6 +1194,95 @@ export const useAddInventory = <TError = ErrorType<BadRequestResponse | NotFound
       > => {
       return useMutation(getAddInventoryMutationOptions(options));
     }
+
+export const getGetProductMovementsUrl = (id: number,
+    params?: GetProductMovementsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/products/${id}/movements?${stringifiedParams}` : `/api/products/${id}/movements`
+}
+
+/**
+ * @summary Movimientos de inventario de un producto en un rango de fechas
+ */
+export const getProductMovements = async (id: number,
+    params?: GetProductMovementsParams, options?: Parameters<typeof customFetch>[1]): Promise<ProductMovements> => {
+
+  return customFetch<ProductMovements>(getGetProductMovementsUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProductMovementsQueryKey = (id: number,
+    params?: GetProductMovementsParams,) => {
+    return [
+    `/api/products/${id}/movements`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetProductMovementsQueryOptions = <TData = Awaited<ReturnType<typeof getProductMovements>>, TError = ErrorType<BadRequestResponse | NotFoundResponse>>(id: number,
+    params?: GetProductMovementsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProductMovements>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProductMovementsQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProductMovements>>> = ({ signal }) => getProductMovements(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProductMovements>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProductMovementsQueryResult = NonNullable<Awaited<ReturnType<typeof getProductMovements>>>
+export type GetProductMovementsQueryError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+
+/**
+ * @summary Movimientos de inventario de un producto en un rango de fechas
+ */
+
+export function useGetProductMovements<TData = Awaited<ReturnType<typeof getProductMovements>>, TError = ErrorType<BadRequestResponse | NotFoundResponse>>(
+ id: number,
+    params?: GetProductMovementsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProductMovements>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProductMovementsQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getDeleteDemoProductsUrl = () => {
 

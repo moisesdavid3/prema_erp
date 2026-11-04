@@ -45,6 +45,8 @@ export * from './notFoundResponse';
 export * from './paymentActivity';
 export * from './product';
 export * from './productInput';
+export * from './productMovement';
+export * from './productMovements';
 export * from './productUpdate';
 export * from './purchase';
 export * from './purchaseImportInput';

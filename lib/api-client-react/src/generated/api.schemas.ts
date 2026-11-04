@@ -483,6 +483,25 @@ export interface Dashboard {
   topProducts: DashboardTopProductsItem[];
 }
 
+export interface ProductMovement {
+  id: number;
+  date: string;
+  type: string;
+  quantity: number;
+  /** Saldo después del movimiento, calculado en orden cronológico. */
+  balance: number;
+  note?: string | null;
+}
+
+export interface ProductMovements {
+  product: Product;
+  /** Saldo al inicio del rango (suma de movimientos anteriores). */
+  openingStock: number;
+  /** Saldo al final del rango. */
+  closingStock: number;
+  movements: ProductMovement[];
+}
+
 export interface InventoryReport {
   products: Product[];
   totalCostValue: number;
@@ -578,6 +597,17 @@ export type NotFoundResponse = Error;
 
 export type DeleteSupplier200 = {
   updatedProducts?: number;
+};
+
+export type GetProductMovementsParams = {
+/**
+ * Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.
+ */
+from?: string;
+/**
+ * Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.
+ */
+to?: string;
 };
 
 export type ListSalesParams = {

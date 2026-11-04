@@ -368,6 +368,53 @@ export const AddInventoryResponse = zod.object({
 
 
 /**
+ * @summary Movimientos de inventario de un producto en un rango de fechas
+ */
+
+
+
+export const GetProductMovementsParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const GetProductMovementsQueryParams = zod.object({
+  "from": zod.date().optional().describe('Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.'),
+  "to": zod.date().optional().describe('Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.')
+})
+
+export const GetProductMovementsResponse = zod.object({
+  "product": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "code": zod.string().nullish().describe('Código visible del producto (ej. P-001)'),
+  "supplier": zod.string().optional(),
+  "supplierId": zod.number().nullish().describe('ID del proveedor normalizado'),
+  "category": zod.string().optional(),
+  "content": zod.string().optional(),
+  "description": zod.string().optional(),
+  "cost": zod.number(),
+  "salePrice": zod.number(),
+  "stock": zod.number(),
+  "minimumStock": zod.number(),
+  "active": zod.boolean().optional().describe('Si el producto está activo para ventas y compras'),
+  "isDemo": zod.boolean().optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}),
+  "openingStock": zod.number().describe('Saldo al inicio del rango (suma de movimientos anteriores).'),
+  "closingStock": zod.number().describe('Saldo al final del rango.'),
+  "movements": zod.array(zod.object({
+  "id": zod.number(),
+  "date": zod.coerce.date(),
+  "type": zod.string(),
+  "quantity": zod.number(),
+  "balance": zod.number().describe('Saldo después del movimiento, calculado en orden cronológico.'),
+  "note": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary Delete seeded demo products
  */
 export const DeleteDemoProductsResponse = zod.void()

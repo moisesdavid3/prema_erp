@@ -297,6 +297,38 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /products/{id}/movements:
+    get:
+      operationId: getProductMovements
+      tags: [products]
+      summary: Movimientos de inventario de un producto en un rango de fechas
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - name: from
+          in: query
+          required: false
+          description: Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Movimientos del producto con saldo cronológico
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductMovements"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /products/demo:
     delete:
       operationId: deleteDemoProducts
@@ -1769,6 +1801,41 @@ components:
             required: [name, count]
           description: Top 10 productos más vendidos en los últimos 15 días
       required: [productCount, totalUnits, inventoryCostValue, inventorySaleValue, potentialProfit, todaySalesCount, todaySalesTotal, lowStockProducts, topProducts]
+    ProductMovement:
+      type: object
+      properties:
+        id:
+          type: number
+        date:
+          type: string
+          format: date-time
+        type:
+          type: string
+        quantity:
+          type: number
+        balance:
+          type: number
+          description: Saldo después del movimiento, calculado en orden cronológico.
+        note:
+          type: string
+          nullable: true
+      required: [id, date, type, quantity, balance]
+    ProductMovements:
+      type: object
+      properties:
+        product:
+          $ref: "#/components/schemas/Product"
+        openingStock:
+          type: number
+          description: Saldo al inicio del rango (suma de movimientos anteriores).
+        closingStock:
+          type: number
+          description: Saldo al final del rango.
+        movements:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductMovement"
+      required: [product, openingStock, closingStock, movements]
     InventoryReport:
       type: object
       properties:
