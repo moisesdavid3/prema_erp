@@ -247,7 +247,7 @@ router.delete("/purchases/:id", async (req, res): Promise<void> => {
       if (!product) continue;
       const stockAfter = product.stock - item.quantity;
       await tx.update(productsTable)
-        .set({ stock: Math.max(0, stockAfter), updatedAt: new Date() })
+        .set({ stock: stockAfter, updatedAt: new Date() })
         .where(eq(productsTable.id, product.id));
       await tx.insert(inventoryMovementsTable).values({
         companyId: req.companyId!,
@@ -256,7 +256,7 @@ router.delete("/purchases/:id", async (req, res): Promise<void> => {
         type: "compra_anulada",
         quantity: -item.quantity,
         stockBefore: product.stock,
-        stockAfter: Math.max(0, stockAfter),
+        stockAfter,
         note: `Compra #${purchase.id} anulada`,
       });
     }
