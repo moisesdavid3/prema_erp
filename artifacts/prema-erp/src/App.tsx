@@ -556,10 +556,10 @@ function Products() {
           <div className="hidden md:block"><span className="text-xl font-bold">{p.stock}</span></div>
           <p className="hidden text-xl md:block">{money(p.salePrice)}</p>
           {!isPrema && <span className={`hidden w-fit rounded-full px-2.5 py-1 text-xs font-bold md:block ${badgeClass}`}>{low ? 'Por surtir' : 'En existencia'}</span>}
-          <div className="hidden flex-col gap-2 md:flex">
-            <Button variant="secondary" className="w-full min-h-[26px] px-1.5 text-sm" onClick={() => setInventory(p)} data-testid={`button-add-inventory-${p.id}`}><PackagePlus size={13} /> Agregar</Button>
-            <Button variant="secondary" className="w-full min-h-[26px] px-1.5 text-sm" onClick={() => setMovementsProduct(p)} data-testid={`button-movements-${p.id}-desktop`}><History size={13} /> Movimientos</Button>
-            <Button variant="ghost" className="w-full min-h-[26px] px-1.5 text-sm !bg-[hsl(var(--muted))] !text-[hsl(var(--foreground))]" onClick={() => setModal(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={13} /> Editar</Button>
+          <div className="hidden gap-2 md:flex">
+            <Button variant="secondary" className="min-h-[34px] flex-1 px-1.5" title="Agregar inventario" aria-label="Agregar inventario" onClick={() => setInventory(p)} data-testid={`button-add-inventory-${p.id}`}><PackagePlus size={16} /></Button>
+            <Button variant="secondary" className="min-h-[34px] flex-1 px-1.5" title="Ver movimientos" aria-label="Ver movimientos" onClick={() => setMovementsProduct(p)} data-testid={`button-movements-${p.id}-desktop`}><History size={16} /></Button>
+            <Button variant="ghost" className="min-h-[34px] flex-1 px-1.5 !bg-[hsl(var(--muted))] !text-[hsl(var(--foreground))]" title="Editar producto" aria-label="Editar producto" onClick={() => setModal(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={16} /></Button>
           </div>
         </div>;
       })}</div>}
