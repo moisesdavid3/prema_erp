@@ -292,7 +292,8 @@ export const UpdateProductBody = zod.object({
   "minimumStock": zod.number().min(updateProductBodyMinimumStockMin).optional(),
   "active": zod.boolean().optional(),
   "stock": zod.number().min(updateProductBodyStockMin).optional().describe('Corrige la existencia actual del producto'),
-  "stockDate": zod.coerce.date().optional().describe('Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual.')
+  "stockDate": zod.coerce.date().optional().describe('Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual.'),
+  "stockNote": zod.string().optional().describe('Motivo del ajuste de existencia. Si se omite se guarda «Ajuste manual de existencia».')
 })
 
 export const UpdateProductResponse = zod.object({

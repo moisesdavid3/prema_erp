@@ -141,7 +141,7 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Revisa los datos e inténtalo nuevamente." });
     return;
   }
-  const { stock: nextStock, ...rest } = parsed.data;
+  const { stock: nextStock, stockNote, ...rest } = parsed.data;
   const [current] = await getDb().select().from(productsTable)
     .where(and(eq(productsTable.id, params.data.id), eq(productsTable.companyId, req.companyId!)));
   if (!current) {
@@ -178,7 +178,7 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
         quantity: nextStock - current.stock,
         stockBefore: current.stock,
         stockAfter: nextStock,
-        note: "Ajuste manual de existencia",
+        note: stockNote?.trim() || "Ajuste manual de existencia",
         createdAt: parsed.data.stockDate ?? new Date(),
       });
     }

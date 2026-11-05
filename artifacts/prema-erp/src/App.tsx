@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, useMutation, useQueries, useQueryClie
 import {
   ArrowRight, ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Box, Check, ChevronDown, CircleDollarSign, ClipboardList,
   CreditCard, Download, History, Home as HomeIcon, LayoutDashboard, LogOut, Menu, PackagePlus, Pencil, Plus, Printer, ReceiptText, Search, ShoppingBasket,
-  ShoppingCart, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Upload, Users, Wallet, X
+  ShoppingCart, SlidersHorizontal, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Upload, Users, Wallet, X
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -11,7 +11,7 @@ import { CompanyProvider, useCompany } from '@/lib/company';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useRoute } from 'wouter';
 import {
   getGetDashboardQueryKey, getGetProductMovementsQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createClientCreditPayment, useUpdatePurchase,
-  useAddInventory,   useCreateClient, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem,
+  useCreateClient, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem,
   useGetDashboard, useGetInventoryReport, useGetProductMovements, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
   useUpdateClient, useUpdateDeudaMoises, useUpdateProduct, useUpdateSupplier, useDeleteSupplier
 } from '@workspace/api-client-react';
@@ -355,11 +355,18 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
 }
 
 function InventoryModal({ product, onClose }: { product: Product; onClose: () => void }) {
-  const qc = useQueryClient(); const add = useAddInventory(); const [quantity, setQuantity] = useState(''); const [note, setNote] = useState(''); const [date, setDate] = useState(toLocalDateString(new Date())); const [error, setError] = useState('');
-  const submit = (e: React.FormEvent) => { e.preventDefault(); if (Number(quantity) < 1) { setError('Escribe una cantidad de al menos 1.'); return; } add.mutate({ id: product.id, data: { quantity: Number(quantity), note: note.trim() || undefined, date: dateInputToISO(date) } }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getListProductsQueryKey() }); qc.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); onClose(); }, onError: () => setError('No se pudo actualizar el inventario.') }); };
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-[hsl(var(--foreground)/.45)] p-4"><form onSubmit={submit} className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border bg-[hsl(var(--card))] p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="font-mono-app text-[10px] uppercase tracking-[.16em] text-[hsl(var(--primary))]">Agregar inventario</p><h2 className="mt-1 font-display text-3xl font-bold">{product.name}</h2><p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Ahora tienes <b>{product.stock} unidades</b>.</p></div><button type="button" onClick={onClose} className="p-2" data-testid="button-close-inventory-modal"><X size={20} /></button></div><div className="mt-6 grid gap-4"><Field label="¿Cuántas unidades llegaron?" type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="10" autoFocus data-testid="input-inventory-quantity" /><Field label="Fecha de la entrada" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-inventory-date" /><Field label="Nota (opcional)" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Por ejemplo: compra del martes" data-testid="input-inventory-note" /></div>{error && <p className="mt-4 text-sm text-[hsl(var(--destructive))]" data-testid="status-inventory-error">{error}</p>}<div className="mt-7 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={onClose} data-testid="button-cancel-inventory">Cancelar</Button><Button type="submit" disabled={add.isPending} data-testid="button-save-inventory">{add.isPending ? 'Actualizando…' : 'Sumar al inventario'}</Button></div></form></div>;
+  const qc = useQueryClient(); const update = useUpdateProduct();
+  const [counted, setCounted] = useState(String(Math.max(0, product.stock))); const [note, setNote] = useState(''); const [date, setDate] = useState(toLocalDateString(new Date())); const [error, setError] = useState('');
+  const hasCount = counted.trim() !== '' && Number.isInteger(Number(counted)) && Number(counted) >= 0;
+  const diff = hasCount ? Number(counted) - product.stock : 0;
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hasCount) { setError('Escribe la existencia real como un número entero de 0 o más.'); return; }
+    if (diff === 0) { setError('La existencia real es igual a la actual: no hay nada que ajustar.'); return; }
+    update.mutate({ id: product.id, data: { stock: Number(counted), stockDate: dateInputToISO(date), stockNote: note.trim() || undefined } }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getListProductsQueryKey() }); qc.invalidateQueries({ queryKey: getGetDashboardQueryKey() }); onClose(); }, onError: () => setError('No se pudo ajustar el inventario.') });
+  };
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-[hsl(var(--foreground)/.45)] p-4"><form onSubmit={submit} className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border bg-[hsl(var(--card))] p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="font-mono-app text-[10px] uppercase tracking-[.16em] text-[hsl(var(--primary))]">Ajustar inventario</p><h2 className="mt-1 font-display text-3xl font-bold">{[product.name, product.content].filter(Boolean).join(' x ')}</h2><p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">El sistema tiene <b>{product.stock} unidades</b>. Escribe cuántas hay realmente y se registrará la diferencia como un ajuste.</p></div><button type="button" onClick={onClose} className="p-2" data-testid="button-close-inventory-modal"><X size={20} /></button></div><div className="mt-6 grid gap-4"><Field label="Existencia real (conteo)" type="number" min="0" step="1" value={counted} onChange={(e) => { setCounted(e.target.value); setError(''); }} placeholder="0" autoFocus data-testid="input-inventory-counted" />{hasCount && <p className={`rounded-xl px-3 py-2 text-sm font-semibold ${diff === 0 ? 'bg-[hsl(var(--muted)/.5)] text-[hsl(var(--muted-foreground))]' : 'bg-[hsl(var(--secondary))] text-[hsl(var(--primary))]'}`} data-testid="text-inventory-diff">{diff === 0 ? 'Sin diferencia con el sistema.' : `Ajuste: ${diff > 0 ? '+' : ''}${diff} ${Math.abs(diff) === 1 ? 'unidad' : 'unidades'} (de ${product.stock} a ${Number(counted)})`}</p>}<Field label="Fecha del ajuste" type="date" value={date} max={toLocalDateString(new Date())} onChange={(e) => setDate(e.target.value)} data-testid="input-inventory-date" /><Field label="Motivo (opcional)" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Por ejemplo: conteo físico del 31 de octubre" data-testid="input-inventory-note" /></div>{error && <p className="mt-4 text-sm text-[hsl(var(--destructive))]" data-testid="status-inventory-error">{error}</p>}<div className="mt-7 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={onClose} data-testid="button-cancel-inventory">Cancelar</Button><Button type="submit" disabled={update.isPending} data-testid="button-save-inventory">{update.isPending ? 'Guardando…' : 'Ajustar inventario'}</Button></div></form></div>;
 }
-
 const MOVEMENT_LABELS: Record<string, string> = { compra: 'Compra', compra_anulada: 'Compra anulada', venta: 'Venta', venta_anulada: 'Venta anulada', ajuste: 'Ajuste', entrada: 'Entrada', salida: 'Baja' };
 const movementDateFmt = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Bogota' });
 
@@ -549,7 +556,7 @@ function Products() {
           </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 md:hidden">
-          <Button variant="secondary" className="min-h-[26px] px-1.5 text-sm" onClick={() => setInventory(p)} data-testid={`button-add-inventory-${p.id}`}><PackagePlus size={13} /> Agregar</Button>
+          <Button variant="secondary" className="min-h-[26px] px-1.5 text-sm" onClick={() => setInventory(p)} data-testid={`button-adjust-inventory-${p.id}`}><SlidersHorizontal size={13} /> Ajustar</Button>
           <Button variant="secondary" className="min-h-[26px] px-1.5 text-sm" onClick={() => setMovementsProduct(p)} data-testid={`button-movements-${p.id}`}><History size={13} /> Movim.</Button>
           <Button variant="ghost" className="min-h-[26px] px-1.5 text-sm !bg-[hsl(var(--muted))] !text-[hsl(var(--foreground))]" onClick={() => setModal(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={13} /> Editar</Button>
         </div>
@@ -557,7 +564,7 @@ function Products() {
           <p className="hidden text-xl md:block">{money(p.salePrice)}</p>
           {!isPrema && <span className={`hidden w-fit rounded-full px-2.5 py-1 text-xs font-bold md:block ${badgeClass}`}>{low ? 'Por surtir' : 'En existencia'}</span>}
           <div className="hidden gap-2 md:flex">
-            <Button variant="secondary" className="min-h-[34px] flex-1 px-1.5" title="Agregar inventario" aria-label="Agregar inventario" onClick={() => setInventory(p)} data-testid={`button-add-inventory-${p.id}`}><PackagePlus size={16} /></Button>
+            <Button variant="secondary" className="min-h-[34px] flex-1 px-1.5" title="Ajustar inventario" aria-label="Ajustar inventario" onClick={() => setInventory(p)} data-testid={`button-adjust-inventory-${p.id}`}><SlidersHorizontal size={16} /></Button>
             <Button variant="secondary" className="min-h-[34px] flex-1 px-1.5" title="Ver movimientos" aria-label="Ver movimientos" onClick={() => setMovementsProduct(p)} data-testid={`button-movements-${p.id}-desktop`}><History size={16} /></Button>
             <Button variant="ghost" className="min-h-[34px] flex-1 px-1.5 !bg-[hsl(var(--muted))] !text-[hsl(var(--foreground))]" title="Editar producto" aria-label="Editar producto" onClick={() => setModal(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={16} /></Button>
           </div>

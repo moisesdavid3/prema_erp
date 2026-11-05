@@ -1290,6 +1290,9 @@ components:
           type: string
           format: date
           description: Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual.
+        stockNote:
+          type: string
+          description: Motivo del ajuste de existencia. Si se omite se guarda «Ajuste manual de existencia».
       minProperties: 1
     InventoryInput:
       type: object

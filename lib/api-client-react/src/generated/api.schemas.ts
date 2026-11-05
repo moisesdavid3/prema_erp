@@ -141,6 +141,8 @@ export interface ProductUpdate {
   stock?: number;
   /** Fecha del ajuste de existencia (YYYY-MM-DD). Si se omite usa la fecha y hora actual. */
   stockDate?: string;
+  /** Motivo del ajuste de existencia. Si se omite se guarda «Ajuste manual de existencia». */
+  stockNote?: string;
 }
 
 export interface InventoryInput {
