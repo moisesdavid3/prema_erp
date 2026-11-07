@@ -167,11 +167,22 @@ function Button({ children, variant = 'primary', className = '', ...props }: Rea
 
 type ComboOption = { value: string; label: string };
 
-function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+function Field({ label, className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return <label className="grid gap-1.5 text-sm font-semibold text-[hsl(var(--foreground))]">
-    {label}<input {...props} className="h-11 w-full rounded-xl border bg-[hsl(var(--card))] px-3.5 font-normal outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary)/.15)]" />
+    {label}<input {...props} className={`h-11 w-full rounded-xl border bg-[hsl(var(--card))] px-3.5 font-normal outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary)/.15)] ${className}`} />
   </label>;
 }
+
+/**
+ * Evita que el valor de un input numérico cambie por accidente: oculta las
+ * flechitas del campo y bloquea la rueda del mouse y las teclas de flecha.
+ */
+const blockNumberStepper = {
+  onWheel: (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur(),
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+  },
+};
 
 /**
  * Combo con buscador: a diferencia de un <select> nativo, permite escribir para
@@ -1176,7 +1187,7 @@ function AbonoModal({ target, onClose }: { target: PaymentTarget; onClose: () =>
               </div>
             )}
           </div>
-          <Field label="Monto del abono" type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" autoFocus data-testid="input-credit-amount" />
+          <Field label="Monto del abono" type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} className="no-spin" {...blockNumberStepper} placeholder="0" autoFocus data-testid="input-credit-amount" />
           {exceedsDebt && <p className="text-xs text-[hsl(var(--destructive))]" data-testid="status-credit-exceeds">El monto supera la deuda pendiente del cliente en esta empresa.</p>}
           <div className="rounded-xl bg-[hsl(var(--muted)/.4)] p-3 text-sm" data-testid="credit-fifo-queue">
             <p className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Orden del abono en {companyName || 'esta empresa'} (deuda más antigua primero)</p>

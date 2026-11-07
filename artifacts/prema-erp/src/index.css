@@ -133,6 +133,9 @@
 @layer utilities {
   .font-display { font-family: var(--app-font-serif); }
   .font-mono-app { font-family: var(--app-font-mono); }
+  .no-spin { -moz-appearance: textfield; appearance: textfield; }
+  .no-spin::-webkit-outer-spin-button,
+  .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .soft-grid {
     background-image: linear-gradient(hsl(var(--border) / .34) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / .34) 1px, transparent 1px);
     background-size: 28px 28px;
