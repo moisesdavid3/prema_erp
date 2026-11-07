@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { CompanyProvider, useCompany } from '@/lib/company';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useRoute } from 'wouter';
 import {
-  getGetDashboardQueryKey, getGetProductMovementsQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createClientCreditPayment, useUpdatePurchase,
+  getGetDashboardQueryKey, getGetProductMovementsQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createClientCreditPayment, useUpdatePurchase,
   useCreateClient, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem,
   useGetDashboard, useGetInventoryReport, useGetProductMovements, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
   useUpdateClient, useUpdateDeudaMoises, useUpdateProduct, useUpdateSupplier, useDeleteSupplier
@@ -1687,9 +1687,30 @@ function CarteraPage() {
   );
 }
 
+// Los abonos de créditos manuales traen manualCreditId y saleId nulo; el tipo
+// generado solo describe los abonos de venta, así que lo extendemos aquí.
+type DetailPayment = CreditPayment & { manualCreditId?: number | null };
+
 function ClientDetailModal({ detail, onClose }: { detail: { name: string; code: string; phone: string; sales: Sale[]; manualCredits: ManualCredit[]; payments: Map<number, number> }; onClose: () => void }) {
-  const salePaymentQueries = useQueries({ queries: detail.sales.map((s) => ({ queryKey: getListCreditPaymentsQueryKey(s.id), queryFn: () => listCreditPayments(s.id) })) });
-  const allPayments = salePaymentQueries.flatMap((q) => q.data || []);
+  // La cartera se ve con "Todas las tiendas", pero el API filtra los abonos por
+  // la empresa activa. Hay que mandar la empresa de cada deuda para que los
+  // abonos de la otra tienda también aparezcan.
+  const salePaymentQueries = useQueries({
+    queries: detail.sales.map((s) => ({
+      queryKey: [...getListCreditPaymentsQueryKey(s.id), s.companyId ?? 0],
+      queryFn: () => listCreditPayments(s.id, { headers: { 'x-company-id': String(s.companyId ?? 0) } }) as Promise<DetailPayment[]>,
+    })),
+  });
+  const manualPaymentQueries = useQueries({
+    queries: detail.manualCredits.map((mc) => ({
+      queryKey: [...getListManualCreditPaymentsQueryKey(mc.id), mc.companyId ?? 0],
+      queryFn: () => listManualCreditPayments(mc.id, { headers: { 'x-company-id': String(mc.companyId ?? 0) } }) as Promise<DetailPayment[]>,
+    })),
+  });
+  const allPayments = [
+    ...salePaymentQueries.flatMap((q) => q.data || []),
+    ...manualPaymentQueries.flatMap((q) => q.data || []),
+  ];
   const qc = useQueryClient();
   const deletePayment = useDeleteCreditPayment();
   const deleteCredit = useDeleteManualCredit();
@@ -1743,10 +1764,23 @@ function ClientDetailModal({ detail, onClose }: { detail: { name: string; code: 
   }, [detail.sales, detail.manualCredits, salesPaid]);
 
   const movements = useMemo(() => {
-    const list: { key: string; date: string; kind: 'sale' | 'manual' | 'payment'; sale?: Sale; mc?: ManualCredit; payment?: CreditPayment; paid?: number }[] = [];
+    const list: { key: string; date: string; kind: 'sale' | 'manual' | 'payment'; sale?: Sale; mc?: ManualCredit; payment?: DetailPayment; paid?: number; debtLabel?: string; companyId?: number }[] = [];
+    const saleById = new Map(detail.sales.map((s) => [s.id, s]));
+    const mcById = new Map(detail.manualCredits.map((mc) => [mc.id, mc]));
     for (const s of detail.sales) list.push({ key: `s-${s.id}`, date: s.date, kind: 'sale', sale: s, paid: salesPaid.get(s.id) ?? 0 });
     for (const mc of detail.manualCredits) list.push({ key: `mc-${mc.id}`, date: mc.createdAt, kind: 'manual', mc });
-    for (const p of allPayments) list.push({ key: `p-${p.id}`, date: p.date, kind: 'payment', payment: p });
+    for (const p of allPayments) {
+      const sale = p.saleId ? saleById.get(p.saleId) : undefined;
+      const mc = p.manualCreditId ? mcById.get(p.manualCreditId) : undefined;
+      list.push({
+        key: `p-${p.id}`,
+        date: p.date,
+        kind: 'payment',
+        payment: p,
+        debtLabel: mc ? `Crédito manual${mc.notes ? ` · ${mc.notes}` : ''}` : sale ? `Venta #${sale.saleNumber}` : 'Abono',
+        companyId: sale?.companyId ?? mc?.companyId ?? undefined,
+      });
+    }
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [detail.sales, detail.manualCredits, allPayments, salesPaid]);
 
@@ -1828,8 +1862,8 @@ function ClientDetailModal({ detail, onClose }: { detail: { name: string; code: 
                     const p = m.payment;
                     return <tr key={m.key} className="border-b last:border-0 bg-green-50/50">
                       <td className="px-3 py-2 text-xs">{dateLabel(p.date)}</td>
-                      <td className="px-3 py-2"><span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">Abono</span></td>
-                      <td className="px-3 py-2 text-xs text-[hsl(var(--muted-foreground))]">{p.paymentMethod || '—'}{p.note ? ` · ${p.note}` : ''}</td>
+                      <td className="px-3 py-2"><span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">Abono</span>{m.companyId ? <span className="ml-1 rounded-full bg-[hsl(var(--muted))] px-1.5 py-0.5 text-[9px] font-bold text-[hsl(var(--muted-foreground))]">{companyName(m.companyId)}</span> : null}</td>
+                      <td className="px-3 py-2 text-xs text-[hsl(var(--muted-foreground))]">{m.debtLabel && <span className="block font-semibold text-[hsl(var(--foreground))]">{m.debtLabel}</span>}{p.paymentMethod || '—'}{p.note ? ` · ${p.note}` : ''}</td>
                       <td className="px-3 py-2 text-right font-bold text-green-600">-{money(p.amount)}</td>
                       <td className="px-3 py-2 text-right text-green-600">{money(p.amount)}</td>
                       <td className="px-3 py-2"></td>
@@ -1887,9 +1921,10 @@ function ClientDetailModal({ detail, onClose }: { detail: { name: string; code: 
                 const p = m.payment;
                 return <div key={m.key} className="rounded-xl border border-green-200 bg-green-50/50 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">Abono</span>
+                    <span className="flex items-center gap-1"><span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">Abono</span>{m.companyId ? <span className="rounded-full bg-[hsl(var(--muted))] px-1.5 py-0.5 text-[9px] font-bold text-[hsl(var(--muted-foreground))]">{companyName(m.companyId)}</span> : null}</span>
                     <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{dateLabel(p.date)}</span>
                   </div>
+                  {m.debtLabel && <p className="mt-1 text-xs font-semibold">{m.debtLabel}</p>}
                   {p.paymentMethod && <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{p.paymentMethod}{p.note ? ` · ${p.note}` : ''}</p>}
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <p className="text-xs font-bold text-green-600">+{money(p.amount)}</p>
