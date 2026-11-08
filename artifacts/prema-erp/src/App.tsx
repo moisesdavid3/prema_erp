@@ -383,7 +383,8 @@ const movementDateFmt = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month
 
 function ProductMovementsModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const today = toLocalDateString(new Date());
-  const [from, setFrom] = useState(() => { const d = new Date(); return toLocalDateString(new Date(d.getFullYear(), d.getMonth(), 1)); });
+  // Por defecto se muestran los últimos 31 días (incluyendo hoy).
+  const [from, setFrom] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return toLocalDateString(d); });
   const [to, setTo] = useState(today);
   const validRange = !!from && !!to && from <= to;
   const report = useGetProductMovements(product.id, { from, to }, { query: { queryKey: getGetProductMovementsQueryKey(product.id, { from, to }), enabled: validRange } });
