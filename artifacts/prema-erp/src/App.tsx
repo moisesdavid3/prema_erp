@@ -434,6 +434,13 @@ function ProductMovementsModal({ product, onClose }: { product: Product; onClose
               movements.length === 0 ? <StatusMessage type="empty" text="Este producto no tiene movimientos en ese rango de fechas." /> :
                 <div className="overflow-hidden rounded-2xl border">
                   <div className="hidden gap-4 border-b bg-[hsl(var(--muted)/.4)] px-5 py-3 font-mono-app text-sm font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))] md:grid md:grid-cols-[150px_150px_80px_80px_1fr]"><span>Fecha</span><span>Tipo</span><span>Cantidad</span><span>Saldo</span><span>Detalle</span></div>
+                  <div className="border-b bg-[hsl(var(--muted)/.35)] p-4 md:grid md:grid-cols-[150px_150px_80px_80px_1fr] md:items-center md:gap-4 md:px-5 md:py-3" data-testid="row-movement-opening">
+                    <p className="text-sm">{from.split('-').reverse().join('/')}</p>
+                    <p className="mt-1 text-sm font-bold md:mt-0">Saldo inicial</p>
+                    <p className="mt-1 font-mono-app text-sm text-[hsl(var(--muted-foreground))] md:mt-0">—</p>
+                    <p className="mt-1 font-mono-app text-sm font-bold md:mt-0"><span className="text-xs font-normal text-[hsl(var(--muted-foreground))] md:hidden">Saldo: </span>{report.data?.openingStock ?? 0}</p>
+                    <p className="mt-1 break-words text-xs text-[hsl(var(--muted-foreground))] md:mt-0">Saldo antes del primer movimiento del rango</p>
+                  </div>
                   {movements.map((m) => <div key={m.id} className="border-b p-4 last:border-0 md:grid md:grid-cols-[150px_150px_80px_80px_1fr] md:items-center md:gap-4 md:px-5 md:py-3" data-testid={`row-movement-${m.id}`}>
                     <p className="text-sm">{movementDateFmt.format(new Date(m.date))}</p>
                     <p className="mt-1 text-sm font-semibold md:mt-0">{MOVEMENT_LABELS[m.type] ?? m.type}</p>
