@@ -2361,9 +2361,6 @@ function AuditSalesByMonthPage() {
   const params = { ...(from ? { from } : {}), ...(to ? { to } : {}) };
   const report = useGetAuditSalesByMonth(params, { query: { queryKey: getGetAuditSalesByMonthQueryKey(params), enabled: valid } });
   const data = report.data; const months = data?.months ?? [];
-  const margin = data && data.totalSold > 0 ? (data.estimatedProfit / data.totalSold) * 100 : 0;
-  const withSales = months.filter((m) => m.saleCount > 0);
-  const best = withSales.reduce<(typeof months)[number] | null>((b, m) => (!b || m.totalSold > b.totalSold ? m : b), null);
   const chartData = months.map((m) => ({ label: monthLabel(m.month), totalSold: m.totalSold, estimatedProfit: m.estimatedProfit }));
   const exportRows = (): (string | number)[][] => [['Mes', 'Ventas', 'Cantidad de ventas', 'Unidades', 'Ticket promedio', 'Utilidad estimada', 'Margen %', 'Ventas con costo 0'], ...months.map((m) => [m.month, m.totalSold, m.saleCount, m.itemCount, m.averageTicket, m.estimatedProfit, m.totalSold > 0 ? Math.round((m.estimatedProfit / m.totalSold) * 1000) / 10 : 0, m.revenueWithoutCost])];
   const fileBase = `auditoria-ventas-por-mes-${from || 'inicio'}-a-${to || 'hoy'}`;
@@ -2371,12 +2368,6 @@ function AuditSalesByMonthPage() {
     <PageHeading eyebrow={`Auditoría · ${activeCompany?.name ?? ''}`} title="Ventas por mes" description="Cuánto se vendió cada mes, con la utilidad estimada y el ticket promedio, para ver la tendencia del negocio." action={<div className="flex gap-2"><Button variant="secondary" className="min-h-[40px] px-3 text-sm" disabled={!data} onClick={() => downloadBlob(new Blob([toCsv(exportRows())], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`)} data-testid="button-audit-sales-csv"><Download size={15} /> CSV</Button><Button variant="secondary" className="min-h-[40px] px-3 text-sm" disabled={!data} onClick={() => { buildXlsxBlob(exportRows()).then((blob) => downloadBlob(blob, `${fileBase}.xlsx`)); }} data-testid="button-audit-sales-xlsx"><Download size={15} /> XLSX</Button></div>} />
     <div className="mb-6"><AuditRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} /></div>
     {!valid ? <StatusMessage type="empty" text="Elige un rango válido: «Desde» no puede ser posterior a «Hasta»." /> : report.isLoading ? <div className="grid gap-3">{[1, 2, 3].map((n) => <div key={n} className="h-24 animate-pulse rounded-2xl bg-[hsl(var(--muted))]" />)}</div> : report.isError || !data ? <StatusMessage text="No pudimos cargar el reporte de ventas por mes." onRetry={() => report.refetch()} /> : months.length === 0 ? <StatusMessage type="empty" text="No hay ventas en ese rango de fechas." /> : <>
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Ventas totales" value={money(data.totalSold)} detail={`${withSales.length} ${withSales.length === 1 ? 'mes' : 'meses'} con ventas`} icon={CircleDollarSign} tone="green" />
-        <Metric label="Utilidad estimada" value={money(data.estimatedProfit)} detail={`Margen ${pct(margin)}`} icon={TrendingUp} tone="orange" />
-        <Metric label="Ventas realizadas" value={String(data.saleCount)} detail={`${data.itemCount} unidades · ticket promedio ${money(data.saleCount > 0 ? Math.round(data.totalSold / data.saleCount) : 0)}`} icon={ReceiptText} />
-        <Metric label="Mejor mes" value={best ? monthLabel(best.month) : '—'} detail={best ? money(best.totalSold) : undefined} icon={BarChart3} />
-      </div>
       <NoCostNotice revenueWithoutCost={data.revenueWithoutCost} total={data.totalSold} what="la utilidad y el margen de esos meses están sobreestimados." />
       <section className="mb-6 rounded-2xl border bg-[hsl(var(--card))] p-4 sm:p-6" aria-label="Gráfico de ventas por mes">
         <ChartContainer config={auditSalesChartConfig} className="h-72 w-full">
@@ -2423,8 +2414,6 @@ function AuditTopProductsPage() {
   const report = useGetAuditTopProducts(params, { query: { queryKey: getGetAuditTopProductsQueryKey(params), enabled: valid } });
   const data = report.data;
   const list = useMemo(() => { const all = [...(data?.products ?? [])]; if (orderBy === 'margin') all.sort((a, b) => b.marginPercent - a.marginPercent || b.profit - a.profit); return all.slice(0, Number(top)); }, [data, orderBy, top]);
-  const shown = list.reduce((s, p) => s + p.profit, 0);
-  const share = data && data.totalProfit > 0 ? (shown / data.totalProfit) * 100 : 0;
   const maxProfit = Math.max(1, ...list.map((p) => p.profit));
   const label = (p: { name: string; content?: string | null }) => [p.name, p.content].filter(Boolean).join(' x ');
   const exportRows = (): (string | number)[][] => [['Posición', 'Código', 'Producto', 'Unidades', 'Ventas', 'Costo', 'Utilidad', 'Margen %', '% de la utilidad total', 'Ventas con costo 0'], ...list.map((p, i) => [i + 1, p.code || '', label(p), p.unitsSold, p.revenue, p.cost, p.profit, p.marginPercent, data && data.totalProfit > 0 ? Math.round((p.profit / data.totalProfit) * 1000) / 10 : 0, p.revenueWithoutCost])];
@@ -2438,12 +2427,6 @@ function AuditTopProductsPage() {
       <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border bg-[hsl(var(--card))] px-3.5 text-sm font-semibold"><input type="checkbox" checked={onlyCosted} onChange={(e) => setOnlyCosted(e.target.checked)} className="h-4 w-4 rounded" data-testid="checkbox-audit-only-costed" />Solo ventas con costo registrado</label>
     </div>
     {!valid ? <StatusMessage type="empty" text="Elige un rango válido: «Desde» no puede ser posterior a «Hasta»." /> : report.isLoading ? <div className="grid gap-3">{[1, 2, 3].map((n) => <div key={n} className="h-24 animate-pulse rounded-2xl bg-[hsl(var(--muted))]" />)}</div> : report.isError || !data ? <StatusMessage text="No pudimos cargar el reporte de productos rentables." onRetry={() => report.refetch()} /> : data.products.length === 0 ? <StatusMessage type="empty" text="No hay ventas con costo registrado en ese rango de fechas." /> : <>
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Utilidad total" value={money(data.totalProfit)} detail={`${money(data.totalRevenue)} vendidos`} icon={TrendingUp} tone="green" />
-        <Metric label="Productos con ventas" value={String(data.productCount)} detail={onlyCosted ? 'Con costo registrado' : 'Todos los vendidos'} icon={Box} />
-        <Metric label={`Top ${list.length} aporta`} value={pct(share)} detail={`${money(shown)} de utilidad`} icon={CircleDollarSign} tone="orange" />
-        <Metric label="Más rentable" value={list[0] ? label(list[0]) : '—'} detail={list[0] ? `${money(list[0].profit)} · margen ${pct(list[0].marginPercent)}` : undefined} icon={BarChart3} />
-      </div>
       <NoCostNotice revenueWithoutCost={data.revenueWithoutCost} total={data.totalRevenue + (onlyCosted ? data.revenueWithoutCost : 0)} what={onlyCosted ? 'se dejaron fuera del cálculo; desmarca «Solo ventas con costo registrado» para incluirlas.' : 'la utilidad y el margen de esos productos están sobreestimados.'} />
       <div className="overflow-x-auto rounded-2xl border bg-[hsl(var(--card))]">
         <table className="w-full min-w-[860px] text-sm" data-testid="table-audit-top-products">
