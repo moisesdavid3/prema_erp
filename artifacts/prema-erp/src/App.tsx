@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider, useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight, ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Box, Check, ChevronDown, CircleDollarSign, ClipboardList,
-  CreditCard, Download, History, Home as HomeIcon, LayoutDashboard, LogOut, Menu, PackagePlus, Pencil, Plus, Printer, ReceiptText, Search, ShoppingBasket,
+  CreditCard, Download, History, Home as HomeIcon, LayoutDashboard, LogOut, Menu, PackagePlus, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Printer, ReceiptText, Search, ShoppingBasket,
   ShoppingCart, SlidersHorizontal, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Upload, Users, Wallet, X
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { CompanyProvider, useCompany } from '@/lib/company';
@@ -290,7 +290,14 @@ function CompanySwitcher() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('prema-sidebar-collapsed') === '1';
+  });
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  useEffect(() => {
+    window.localStorage.setItem('prema-sidebar-collapsed', collapsed ? '1' : '0');
+  }, [collapsed]);
   const { user, signOut } = useAuth();
   const nav = [
     { href: '/app', label: 'Inicio', icon: HomeIcon },
@@ -301,25 +308,26 @@ function Shell({ children }: { children: React.ReactNode }) {
     { label: 'Reportes', icon: BarChart3, children: [{ href: '/app/reportes/ventas', label: 'Reporte de ventas', icon: ReceiptText }, { href: '/app/reportes/bajas', label: 'Bajas de inventario', icon: Box }] },
   ];
   return <div className="min-h-[100dvh] bg-background">
-    <aside className={`fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col bg-[hsl(var(--sidebar))] px-5 py-6 text-[hsl(var(--sidebar-foreground))] transition-transform md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-      <div className="mb-10 flex items-center justify-between"><Brand /><button className="text-[hsl(var(--sidebar-foreground)/.7)] md:hidden" onClick={() => setMobileOpen(false)} data-testid="button-close-menu"><X size={20} /></button></div>
+    <aside className={`fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col bg-[hsl(var(--sidebar))] px-5 py-6 text-[hsl(var(--sidebar-foreground))] transition-transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'}`}>
+      <div className="mb-10 flex items-center justify-between"><Brand /><button className="text-[hsl(var(--sidebar-foreground)/.7)] lg:hidden" onClick={() => setMobileOpen(false)} data-testid="button-close-menu"><X size={20} /></button></div>
       <CompanySwitcher />
       <nav className="grid min-h-0 flex-1 content-start gap-1 overflow-y-auto overscroll-contain">
-        {nav.map((item) => { if (!item.children) { const { href, label, icon: Icon } = item; return <Link key={href} href={href} onClick={() => setMobileOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${location.pathname === href ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))]' : 'text-[hsl(var(--sidebar-foreground)/.7)] hover:bg-[hsl(var(--sidebar-accent)/.7)] hover:text-[hsl(var(--sidebar-foreground))]'}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={19} /><span>{label}</span>{href === '/app/venta' && <span className="ml-auto h-2 w-2 rounded-full bg-[hsl(var(--sidebar-primary))]" />}</Link>; } const { label, icon: Icon, children } = item; const active = children.some((c) => location.pathname === c.href || location.pathname.startsWith(`${c.href}/`)); const open = openMenu === label || active; return <div key={label}><button type="button" onClick={() => setOpenMenu(openMenu === label ? null : label)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${active ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))]' : 'text-[hsl(var(--sidebar-foreground)/.7)] hover:bg-[hsl(var(--sidebar-accent)/.7)] hover:text-[hsl(var(--sidebar-foreground))]'}`} data-testid={`button-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={19} /><span>{label}</span><ChevronDown size={15} className={`ml-auto transition-transform ${open ? 'rotate-180' : ''}`} /></button>{open && <div className="mt-1 grid gap-1 pl-4">{children.map(({ href: childHref, label: childLabel, icon: ChildIcon }) => <Link key={childHref} href={childHref} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${location.pathname === childHref ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))]' : 'text-[hsl(var(--sidebar-foreground)/.7)] hover:bg-[hsl(var(--sidebar-accent)/.7)] hover:text-[hsl(var(--sidebar-foreground))]'}`} data-testid={`link-nav-${childLabel.toLowerCase().replaceAll(' ', '-')}`}><ChildIcon size={17} /><span>{childLabel}</span></Link>)}</div>}</div>; })}</nav>
+        {nav.map((item) => { if (!item.children) { const { href, label, icon: Icon } = item; return <Link key={href} href={href} onClick={() => setMobileOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${location.pathname === href ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))]' : 'text-[hsl(var(--sidebar-foreground)/.7)] hover:bg-[hsl(var(--sidebar-accent)/.7)] hover:text-[hsl(var(--sidebar-foreground))]'}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={19} /><span>{label}</span>{href === '/app/venta' && <span className="ml-auto h-2 w-2 rounded-full bg-[hsl(var(--sidebar-primary))]" />}</Link>; } const { label, icon: Icon, children } = item; const active = children.some((c) => location.pathname === c.href || location.pathname.startsWith(`${c.href}/`)); const open = openMenu === label || active; return <div key={label}><button type="button" onClick={() => setOpenMenu(openMenu === label ? null : label)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${active ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))]' : 'text-[hsl(var(--sidebar-foreground)/.7)] hover:bg-[hsl(var(--sidebar-accent)/.7)] hover:text-[hsl(var(--sidebar-foreground))]'}`} data-testid={`button-nav-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={19} /><span>{label}</span><ChevronDown size={15} className={`ml-auto transition-transform ${open ? 'rotate-180' : ''}`} /></button>{open && <div className="mt-1 grid gap-1 pl-4">{children.map(({ href: childHref, label: childLabel, icon: ChildIcon }) => <Link key={childHref} href={childHref} onClick={() => setMobileOpen(false)} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${location.pathname === childHref ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))]' : 'text-[hsl(var(--sidebar-foreground)/.7)] hover:bg-[hsl(var(--sidebar-accent)/.7)] hover:text-[hsl(var(--sidebar-foreground))]'}`} data-testid={`link-nav-${childLabel.toLowerCase().replaceAll(' ', '-')}`}><ChildIcon size={17} /><span>{childLabel}</span></Link>)}</div>}</div>; })}</nav>
       <div className="mt-auto flex items-center gap-3 border-t border-[hsl(var(--sidebar-border))] pt-5">
         <span className="grid h-9 w-9 place-items-center rounded-full bg-[hsl(var(--sidebar-primary))] text-xs font-bold text-[hsl(var(--sidebar-primary-foreground))]">{(user?.email?.[0] || 'F').toUpperCase()}</span>
         <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{user?.email || 'Mi cuenta'}</p><p className="truncate text-[11px] text-[hsl(var(--sidebar-foreground)/.55)]">{user?.email || 'Sesión activa'}</p></div>
         <button onClick={() => signOut()} className="rounded-lg p-2 text-[hsl(var(--sidebar-foreground)/.55)] hover:bg-[hsl(var(--sidebar-accent))] hover:text-[hsl(var(--sidebar-foreground))]" title="Salir" data-testid="button-sign-out"><LogOut size={17} /></button>
       </div>
     </aside>
-    <div className="md:pl-[264px]">
+    <div className={`transition-[padding] duration-300 ${collapsed ? 'lg:pl-0' : 'lg:pl-[264px]'}`}>
       <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b bg-[hsl(var(--background)/.88)] px-5 backdrop-blur-md sm:px-8">
-        <button className="flex items-center gap-2 rounded-lg p-2 font-bold text-[hsl(var(--muted-foreground))] md:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={22} /><span>Menú</span></button>
+        <button className="flex items-center gap-2 rounded-lg p-2 font-bold text-[hsl(var(--muted-foreground))] lg:hidden" onClick={() => setMobileOpen(true)} data-testid="button-open-menu"><Menu size={22} /><span>Menú</span></button>
+        <button className="hidden items-center justify-center rounded-lg p-2 text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] lg:flex" onClick={() => setCollapsed((v) => !v)} title={collapsed ? 'Mostrar menú' : 'Ocultar menú'} aria-label={collapsed ? 'Mostrar menú' : 'Ocultar menú'} aria-expanded={!collapsed} data-testid="button-toggle-sidebar">{collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}</button>
         <div className="ml-auto flex items-center gap-2 text-xs font-semibold text-[hsl(var(--muted-foreground))]"><History size={15} /> {new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</div>
       </header>
       <main className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:px-12">{children}</main>
     </div>
-    {mobileOpen && <button className="fixed inset-0 z-30 bg-[hsl(var(--foreground)/.35)] md:hidden" onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" data-testid="button-menu-overlay" />}
+    {mobileOpen && <button className="fixed inset-0 z-30 bg-[hsl(var(--foreground)/.35)] lg:hidden" onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" data-testid="button-menu-overlay" />}
   </div>;
 }
 
