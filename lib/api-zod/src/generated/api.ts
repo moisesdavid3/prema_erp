@@ -1032,6 +1032,66 @@ export const GetSalesReportResponse = zod.object({
 
 
 /**
+ * @summary Auditoría - ventas totales por mes de la empresa activa
+ */
+export const GetAuditSalesByMonthQueryParams = zod.object({
+  "from": zod.date().optional().describe('Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.'),
+  "to": zod.date().optional().describe('Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.')
+})
+
+export const GetAuditSalesByMonthResponse = zod.object({
+  "months": zod.array(zod.object({
+  "month": zod.string().describe('Mes en formato YYYY-MM (hora de Colombia).'),
+  "saleCount": zod.number(),
+  "itemCount": zod.number(),
+  "totalSold": zod.number().describe('Total vendido en productos (sin el costo de domicilio).'),
+  "estimatedProfit": zod.number(),
+  "averageTicket": zod.number(),
+  "revenueWithoutCost": zod.number().describe('Parte del total vendido que se registró con costo 0 (utilidad sobreestimada).')
+})),
+  "totalSold": zod.number(),
+  "estimatedProfit": zod.number(),
+  "saleCount": zod.number(),
+  "itemCount": zod.number(),
+  "revenueWithoutCost": zod.number()
+})
+
+
+/**
+ * @summary Auditoría - productos más rentables de la empresa activa
+ */
+export const getAuditTopProductsQueryLimitMax = 200;
+
+
+
+export const GetAuditTopProductsQueryParams = zod.object({
+  "from": zod.date().optional().describe('Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.'),
+  "to": zod.date().optional().describe('Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.'),
+  "limit": zod.coerce.number().min(1).max(getAuditTopProductsQueryLimitMax).optional().describe('Cantidad máxima de productos a devolver (1 a 200, por defecto 25).'),
+  "excludeNoCost": zod.coerce.boolean().optional().describe('Si es true, la rentabilidad se calcula solo con las ventas que tienen costo registrado (costo mayor a 0).')
+})
+
+export const GetAuditTopProductsResponse = zod.object({
+  "products": zod.array(zod.object({
+  "productId": zod.number(),
+  "code": zod.string().nullable(),
+  "name": zod.string(),
+  "content": zod.string().nullable(),
+  "unitsSold": zod.number(),
+  "revenue": zod.number(),
+  "cost": zod.number(),
+  "profit": zod.number(),
+  "marginPercent": zod.number(),
+  "revenueWithoutCost": zod.number().describe('Ventas del producto registradas con costo 0 en el período.')
+})),
+  "productCount": zod.number().describe('Cantidad total de productos con ventas en el período (antes de aplicar el límite).'),
+  "totalRevenue": zod.number(),
+  "totalProfit": zod.number(),
+  "revenueWithoutCost": zod.number().describe('Total vendido con costo 0 en el período (de todos los productos).')
+})
+
+
+/**
  * @summary List stockouts (bajas de inventario) for a month
  */
 export const ListStockoutsQueryParams = zod.object({

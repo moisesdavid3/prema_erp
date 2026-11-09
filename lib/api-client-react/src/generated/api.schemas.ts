@@ -511,6 +511,54 @@ export interface InventoryReport {
   potentialProfit: number;
 }
 
+export interface AuditMonth {
+  /** Mes en formato YYYY-MM (hora de Colombia). */
+  month: string;
+  saleCount: number;
+  itemCount: number;
+  /** Total vendido en productos (sin el costo de domicilio). */
+  totalSold: number;
+  estimatedProfit: number;
+  averageTicket: number;
+  /** Parte del total vendido que se registró con costo 0 (utilidad sobreestimada). */
+  revenueWithoutCost: number;
+}
+
+export interface AuditSalesByMonth {
+  months: AuditMonth[];
+  totalSold: number;
+  estimatedProfit: number;
+  saleCount: number;
+  itemCount: number;
+  revenueWithoutCost: number;
+}
+
+export interface AuditProduct {
+  productId: number;
+  /** @nullable */
+  code: string | null;
+  name: string;
+  /** @nullable */
+  content: string | null;
+  unitsSold: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+  marginPercent: number;
+  /** Ventas del producto registradas con costo 0 en el período. */
+  revenueWithoutCost: number;
+}
+
+export interface AuditTopProducts {
+  products: AuditProduct[];
+  /** Cantidad total de productos con ventas en el período (antes de aplicar el límite). */
+  productCount: number;
+  totalRevenue: number;
+  totalProfit: number;
+  /** Total vendido con costo 0 en el período (de todos los productos). */
+  revenueWithoutCost: number;
+}
+
 export interface PaymentActivity {
   id: number;
   /** @nullable */
@@ -705,6 +753,38 @@ export const GetSalesReportPeriod = {
   previousMonth: 'previousMonth',
   all: 'all',
 } as const;
+
+export type GetAuditSalesByMonthParams = {
+/**
+ * Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.
+ */
+from?: string;
+/**
+ * Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.
+ */
+to?: string;
+};
+
+export type GetAuditTopProductsParams = {
+/**
+ * Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.
+ */
+from?: string;
+/**
+ * Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.
+ */
+to?: string;
+/**
+ * Cantidad máxima de productos a devolver (1 a 200, por defecto 25).
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * Si es true, la rentabilidad se calcula solo con las ventas que tienen costo registrado (costo mayor a 0).
+ */
+excludeNoCost?: boolean;
+};
 
 export type ListStockoutsParams = {
 /**

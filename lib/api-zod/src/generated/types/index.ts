@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './auditMonth';
+export * from './auditProduct';
+export * from './auditSalesByMonth';
+export * from './auditTopProducts';
 export * from './badRequestResponse';
 export * from './client';
 export * from './clientCreditPaymentAllocation';
@@ -22,6 +26,8 @@ export * from './deleteSupplier200';
 export * from './deleteSupplierInput';
 export * from './deudaMoisesInput';
 export * from './error';
+export * from './getAuditSalesByMonthParams';
+export * from './getAuditTopProductsParams';
 export * from './getInventoryReportFilter';
 export * from './getInventoryReportParams';
 export * from './getSalesReportParams';

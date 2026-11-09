@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, useMutation, useQueries, useQueryClie
 import {
   ArrowRight, ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Box, Check, ChevronDown, CircleDollarSign, ClipboardList,
   CreditCard, Download, History, Home as HomeIcon, LayoutDashboard, LogOut, Menu, PackagePlus, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Printer, ReceiptText, Search, ShoppingBasket,
-  ShoppingCart, SlidersHorizontal, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Upload, Users, Wallet, X
+  ShieldCheck, ShoppingCart, SlidersHorizontal, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Upload, Users, Wallet, X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -12,11 +12,13 @@ import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, use
 import {
   getGetDashboardQueryKey, getGetProductMovementsQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createClientCreditPayment, useUpdatePurchase,
   useCreateClient, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem,
-  useGetDashboard, useGetInventoryReport, useGetProductMovements, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
+  useGetAuditSalesByMonth, useGetAuditTopProducts, getGetAuditSalesByMonthQueryKey, getGetAuditTopProductsQueryKey, useGetDashboard, useGetInventoryReport, useGetProductMovements, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
   useUpdateClient, useUpdateDeudaMoises, useUpdateProduct, useUpdateSupplier, useDeleteSupplier
 } from '@workspace/api-client-react';
 import type { Client, CreditPayment, ManualCredit, PaymentActivity, Product, Purchase, PurchaseImportResult, PurchaseInput, Sale, Stockout, StockoutItem, SupplierSummary } from '@workspace/api-client-react';
 import { Toaster } from '@/components/ui/toaster';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import NotFound from '@/pages/not-found';
@@ -306,6 +308,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     { label: 'Compras', icon: ShoppingBasket, children: [{ href: '/app/compras', label: 'Compras', icon: ShoppingBasket }, { href: '/app/proveedores', label: 'Proveedores', icon: Truck }] },
     { label: 'Cartera', icon: CreditCard, children: [{ href: '/app/cartera', label: 'Cartera', icon: CreditCard }, { href: '/app/clientes', label: 'Clientes', icon: Users }] },
     { label: 'Reportes', icon: BarChart3, children: [{ href: '/app/reportes/ventas', label: 'Reporte de ventas', icon: ReceiptText }, { href: '/app/reportes/bajas', label: 'Bajas de inventario', icon: Box }] },
+    { label: 'Auditoría', icon: ShieldCheck, children: [{ href: '/app/auditoria/ventas-mensuales', label: 'Ventas por mes', icon: BarChart3 }, { href: '/app/auditoria/productos-rentables', label: 'Productos más rentables', icon: TrendingUp }] },
   ];
   return <div className="min-h-[100dvh] bg-background">
     <aside className={`fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col bg-[hsl(var(--sidebar))] px-5 py-6 text-[hsl(var(--sidebar-foreground))] transition-transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'}`}>
@@ -2323,15 +2326,155 @@ function AuthCard({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   </div>;
 }
 
+// ───────────────────────── Auditoría ─────────────────────────
+const monthLabel = (m: string) => { const [y, mo] = m.split('-').map(Number); const t = new Intl.DateTimeFormat('es-CO', { month: 'short', year: 'numeric' }).format(new Date(y, mo - 1, 1)).replace('.', ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+const pct = (v: number) => `${v.toLocaleString('es-CO', { maximumFractionDigits: 1 })}%`;
+const auditLast12MonthsFrom = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 11); return toLocalDateString(d); };
+const todayString = () => toLocalDateString(new Date());
+
+function AuditRangeFilter({ from, to, setFrom, setTo }: { from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void }) {
+  const dateClass = 'h-11 w-full rounded-xl border bg-[hsl(var(--card))] px-3.5 font-normal outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary)/.15)]';
+  const year = new Date().getFullYear();
+  return <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+    <label className="grid gap-1.5 text-sm font-semibold sm:w-44"><span>Desde</span><input type="date" max={to || undefined} value={from} onChange={(e) => setFrom(e.target.value)} className={dateClass} data-testid="input-audit-from" /></label>
+    <label className="grid gap-1.5 text-sm font-semibold sm:w-44"><span>Hasta</span><input type="date" min={from || undefined} value={to} onChange={(e) => setTo(e.target.value)} className={dateClass} data-testid="input-audit-to" /></label>
+    <div className="flex flex-wrap gap-2">
+      <Button type="button" variant="secondary" className="min-h-[44px] px-3 text-sm" onClick={() => { setFrom(auditLast12MonthsFrom()); setTo(todayString()); }} data-testid="button-audit-12m">Últimos 12 meses</Button>
+      <Button type="button" variant="secondary" className="min-h-[44px] px-3 text-sm" onClick={() => { setFrom(`${year}-01-01`); setTo(todayString()); }} data-testid="button-audit-year">Este año</Button>
+      <Button type="button" variant="secondary" className="min-h-[44px] px-3 text-sm" onClick={() => { setFrom(''); setTo(''); }} data-testid="button-audit-all">Todo el historial</Button>
+    </div>
+  </div>;
+}
+
+function NoCostNotice({ revenueWithoutCost, total, what }: { revenueWithoutCost: number; total: number; what: string }) {
+  if (revenueWithoutCost <= 0 || total <= 0) return null;
+  return <div className="mb-5 flex items-start gap-3 rounded-2xl border border-[hsl(var(--secondary))] bg-[hsl(var(--secondary)/.5)] p-4 text-sm" role="note" data-testid="notice-audit-no-cost"><TriangleAlert size={18} className="mt-0.5 shrink-0 text-[hsl(var(--primary))]" /><p><b>{money(revenueWithoutCost)}</b> ({pct((revenueWithoutCost / total) * 100)}) de las ventas del período se registraron con costo 0, por eso {what}</p></div>;
+}
+
+const auditSalesChartConfig = { totalSold: { label: 'Ventas', color: 'hsl(var(--primary))' }, estimatedProfit: { label: 'Utilidad estimada', color: 'hsl(var(--accent-foreground))' } } satisfies ChartConfig;
+const compactMoney = new Intl.NumberFormat('es-CO', { notation: 'compact', maximumFractionDigits: 1 });
+
+function AuditSalesByMonthPage() {
+  const { activeCompany } = useCompany();
+  const [from, setFrom] = useState(auditLast12MonthsFrom); const [to, setTo] = useState(todayString);
+  const valid = !from || !to || from <= to;
+  const params = { ...(from ? { from } : {}), ...(to ? { to } : {}) };
+  const report = useGetAuditSalesByMonth(params, { query: { queryKey: getGetAuditSalesByMonthQueryKey(params), enabled: valid } });
+  const data = report.data; const months = data?.months ?? [];
+  const margin = data && data.totalSold > 0 ? (data.estimatedProfit / data.totalSold) * 100 : 0;
+  const withSales = months.filter((m) => m.saleCount > 0);
+  const best = withSales.reduce<(typeof months)[number] | null>((b, m) => (!b || m.totalSold > b.totalSold ? m : b), null);
+  const chartData = months.map((m) => ({ label: monthLabel(m.month), totalSold: m.totalSold, estimatedProfit: m.estimatedProfit }));
+  const exportRows = (): (string | number)[][] => [['Mes', 'Ventas', 'Cantidad de ventas', 'Unidades', 'Ticket promedio', 'Utilidad estimada', 'Margen %', 'Ventas con costo 0'], ...months.map((m) => [m.month, m.totalSold, m.saleCount, m.itemCount, m.averageTicket, m.estimatedProfit, m.totalSold > 0 ? Math.round((m.estimatedProfit / m.totalSold) * 1000) / 10 : 0, m.revenueWithoutCost])];
+  const fileBase = `auditoria-ventas-por-mes-${from || 'inicio'}-a-${to || 'hoy'}`;
+  return <Shell>
+    <PageHeading eyebrow={`Auditoría · ${activeCompany?.name ?? ''}`} title="Ventas por mes" description="Cuánto se vendió cada mes, con la utilidad estimada y el ticket promedio, para ver la tendencia del negocio." action={<div className="flex gap-2"><Button variant="secondary" className="min-h-[40px] px-3 text-sm" disabled={!data} onClick={() => downloadBlob(new Blob([toCsv(exportRows())], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`)} data-testid="button-audit-sales-csv"><Download size={15} /> CSV</Button><Button variant="secondary" className="min-h-[40px] px-3 text-sm" disabled={!data} onClick={() => { buildXlsxBlob(exportRows()).then((blob) => downloadBlob(blob, `${fileBase}.xlsx`)); }} data-testid="button-audit-sales-xlsx"><Download size={15} /> XLSX</Button></div>} />
+    <div className="mb-6"><AuditRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} /></div>
+    {!valid ? <StatusMessage type="empty" text="Elige un rango válido: «Desde» no puede ser posterior a «Hasta»." /> : report.isLoading ? <div className="grid gap-3">{[1, 2, 3].map((n) => <div key={n} className="h-24 animate-pulse rounded-2xl bg-[hsl(var(--muted))]" />)}</div> : report.isError || !data ? <StatusMessage text="No pudimos cargar el reporte de ventas por mes." onRetry={() => report.refetch()} /> : months.length === 0 ? <StatusMessage type="empty" text="No hay ventas en ese rango de fechas." /> : <>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Ventas totales" value={money(data.totalSold)} detail={`${withSales.length} ${withSales.length === 1 ? 'mes' : 'meses'} con ventas`} icon={CircleDollarSign} tone="green" />
+        <Metric label="Utilidad estimada" value={money(data.estimatedProfit)} detail={`Margen ${pct(margin)}`} icon={TrendingUp} tone="orange" />
+        <Metric label="Ventas realizadas" value={String(data.saleCount)} detail={`${data.itemCount} unidades · ticket promedio ${money(data.saleCount > 0 ? Math.round(data.totalSold / data.saleCount) : 0)}`} icon={ReceiptText} />
+        <Metric label="Mejor mes" value={best ? monthLabel(best.month) : '—'} detail={best ? money(best.totalSold) : undefined} icon={BarChart3} />
+      </div>
+      <NoCostNotice revenueWithoutCost={data.revenueWithoutCost} total={data.totalSold} what="la utilidad y el margen de esos meses están sobreestimados." />
+      <section className="mb-6 rounded-2xl border bg-[hsl(var(--card))] p-4 sm:p-6" aria-label="Gráfico de ventas por mes">
+        <ChartContainer config={auditSalesChartConfig} className="h-72 w-full">
+          <BarChart data={chartData} margin={{ left: 4, right: 8, top: 8 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd" tickMargin={8} />
+            <YAxis tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => compactMoney.format(v)} />
+            <ChartTooltip content={<ChartTooltipContent formatter={(value, name) => <div className="flex w-full items-center justify-between gap-4"><span className="text-muted-foreground">{auditSalesChartConfig[name as keyof typeof auditSalesChartConfig]?.label ?? name}</span><span className="font-mono-app font-bold">{money(Number(value))}</span></div>} />} />
+            <Bar dataKey="totalSold" fill="var(--color-totalSold)" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="estimatedProfit" fill="var(--color-estimatedProfit)" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ChartContainer>
+        <div className="mt-3 flex flex-wrap gap-4 text-xs font-semibold text-[hsl(var(--muted-foreground))]"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm bg-[hsl(var(--primary))]" /> Ventas</span><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm bg-[hsl(var(--accent-foreground))]" /> Utilidad estimada</span></div>
+      </section>
+      <div className="overflow-x-auto rounded-2xl border bg-[hsl(var(--card))]">
+        <table className="w-full min-w-[820px] text-sm" data-testid="table-audit-sales-by-month">
+          <thead><tr className="border-b bg-[hsl(var(--muted)/.45)] font-mono-app text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]"><th className="px-4 py-3 text-left">Mes</th><th className="px-4 py-3 text-right">Ventas</th><th className="px-4 py-3 text-right">Vs. mes anterior</th><th className="px-4 py-3 text-right"># ventas</th><th className="px-4 py-3 text-right">Unidades</th><th className="px-4 py-3 text-right">Ticket promedio</th><th className="px-4 py-3 text-right">Utilidad</th><th className="px-4 py-3 text-right">Margen</th></tr></thead>
+          <tbody>{[...months].reverse().map((m, i, arr) => {
+            const prev = arr[i + 1]; const change = prev && prev.totalSold > 0 ? ((m.totalSold - prev.totalSold) / prev.totalSold) * 100 : null;
+            const mMargin = m.totalSold > 0 ? (m.estimatedProfit / m.totalSold) * 100 : 0; const noCost = m.totalSold > 0 && m.revenueWithoutCost / m.totalSold >= 0.1;
+            return <tr key={m.month} className="border-b last:border-0" data-testid={`row-audit-month-${m.month}`}>
+              <td className="px-4 py-3 font-bold">{monthLabel(m.month)}</td>
+              <td className="px-4 py-3 text-right font-mono-app font-bold">{money(m.totalSold)}</td>
+              <td className="px-4 py-3 text-right font-mono-app">{change === null ? '—' : <span className={`inline-flex items-center gap-1 font-bold ${change >= 0 ? 'text-[hsl(var(--accent-foreground))]' : 'text-[hsl(var(--destructive))]'}`}>{change >= 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}{pct(Math.abs(change))}</span>}</td>
+              <td className="px-4 py-3 text-right font-mono-app">{m.saleCount}</td>
+              <td className="px-4 py-3 text-right font-mono-app">{m.itemCount}</td>
+              <td className="px-4 py-3 text-right font-mono-app">{money(m.averageTicket)}</td>
+              <td className="px-4 py-3 text-right font-mono-app">{money(m.estimatedProfit)}</td>
+              <td className="px-4 py-3 text-right font-mono-app">{m.saleCount > 0 ? <>{pct(mMargin)}{noCost && <span title={`${money(m.revenueWithoutCost)} vendidos con costo 0: margen sobreestimado`} className="ml-1 cursor-help text-[hsl(var(--primary))]" aria-label="Margen sobreestimado por ventas con costo 0">*</span>}</> : '—'}</td>
+            </tr>; })}</tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs text-[hsl(var(--muted-foreground))]">Ventas = total de productos vendidos, sin el costo de domicilio. Utilidad estimada = (precio − costo) × cantidad, con el costo registrado al momento de cada venta. Meses según hora de Colombia. * Margen sobreestimado: 10% o más de ese mes se vendió con costo 0.</p>
+    </>}
+  </Shell>;
+}
+
+function AuditTopProductsPage() {
+  const { activeCompany } = useCompany();
+  const [from, setFrom] = useState(auditLast12MonthsFrom); const [to, setTo] = useState(todayString);
+  const [top, setTop] = useState('25'); const [orderBy, setOrderBy] = useState<'profit' | 'margin'>('profit'); const [onlyCosted, setOnlyCosted] = useState(true);
+  const valid = !from || !to || from <= to;
+  const params = { ...(from ? { from } : {}), ...(to ? { to } : {}), limit: 200, ...(onlyCosted ? { excludeNoCost: true } : {}) };
+  const report = useGetAuditTopProducts(params, { query: { queryKey: getGetAuditTopProductsQueryKey(params), enabled: valid } });
+  const data = report.data;
+  const list = useMemo(() => { const all = [...(data?.products ?? [])]; if (orderBy === 'margin') all.sort((a, b) => b.marginPercent - a.marginPercent || b.profit - a.profit); return all.slice(0, Number(top)); }, [data, orderBy, top]);
+  const shown = list.reduce((s, p) => s + p.profit, 0);
+  const share = data && data.totalProfit > 0 ? (shown / data.totalProfit) * 100 : 0;
+  const maxProfit = Math.max(1, ...list.map((p) => p.profit));
+  const label = (p: { name: string; content?: string | null }) => [p.name, p.content].filter(Boolean).join(' x ');
+  const exportRows = (): (string | number)[][] => [['Posición', 'Código', 'Producto', 'Unidades', 'Ventas', 'Costo', 'Utilidad', 'Margen %', '% de la utilidad total', 'Ventas con costo 0'], ...list.map((p, i) => [i + 1, p.code || '', label(p), p.unitsSold, p.revenue, p.cost, p.profit, p.marginPercent, data && data.totalProfit > 0 ? Math.round((p.profit / data.totalProfit) * 1000) / 10 : 0, p.revenueWithoutCost])];
+  const fileBase = `auditoria-productos-rentables-${from || 'inicio'}-a-${to || 'hoy'}`;
+  return <Shell>
+    <PageHeading eyebrow={`Auditoría · ${activeCompany?.name ?? ''}`} title="Productos más rentables" description="Los productos que más utilidad dejan, con su margen, para decidir qué impulsar, comprar o revisar el precio." action={<div className="flex gap-2"><Button variant="secondary" className="min-h-[40px] px-3 text-sm" disabled={!data} onClick={() => downloadBlob(new Blob([toCsv(exportRows())], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`)} data-testid="button-audit-products-csv"><Download size={15} /> CSV</Button><Button variant="secondary" className="min-h-[40px] px-3 text-sm" disabled={!data} onClick={() => { buildXlsxBlob(exportRows()).then((blob) => downloadBlob(blob, `${fileBase}.xlsx`)); }} data-testid="button-audit-products-xlsx"><Download size={15} /> XLSX</Button></div>} />
+    <div className="mb-4"><AuditRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} /></div>
+    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="grid gap-1.5 sm:w-40"><span className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Mostrar</span><Combo value={top} onChange={setTop} placeholder="Cantidad" testid="select-audit-top" options={[{ value: '10', label: 'Top 10' }, { value: '25', label: 'Top 25' }, { value: '50', label: 'Top 50' }, { value: '100', label: 'Top 100' }]} /></div>
+      <div className="grid gap-1.5 sm:w-52"><span className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Ordenar por</span><Combo value={orderBy} onChange={(v) => setOrderBy(v as 'profit' | 'margin')} placeholder="Orden" testid="select-audit-order" options={[{ value: 'profit', label: 'Utilidad en pesos' }, { value: 'margin', label: 'Margen %' }]} /></div>
+      <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border bg-[hsl(var(--card))] px-3.5 text-sm font-semibold"><input type="checkbox" checked={onlyCosted} onChange={(e) => setOnlyCosted(e.target.checked)} className="h-4 w-4 rounded" data-testid="checkbox-audit-only-costed" />Solo ventas con costo registrado</label>
+    </div>
+    {!valid ? <StatusMessage type="empty" text="Elige un rango válido: «Desde» no puede ser posterior a «Hasta»." /> : report.isLoading ? <div className="grid gap-3">{[1, 2, 3].map((n) => <div key={n} className="h-24 animate-pulse rounded-2xl bg-[hsl(var(--muted))]" />)}</div> : report.isError || !data ? <StatusMessage text="No pudimos cargar el reporte de productos rentables." onRetry={() => report.refetch()} /> : data.products.length === 0 ? <StatusMessage type="empty" text="No hay ventas con costo registrado en ese rango de fechas." /> : <>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Utilidad total" value={money(data.totalProfit)} detail={`${money(data.totalRevenue)} vendidos`} icon={TrendingUp} tone="green" />
+        <Metric label="Productos con ventas" value={String(data.productCount)} detail={onlyCosted ? 'Con costo registrado' : 'Todos los vendidos'} icon={Box} />
+        <Metric label={`Top ${list.length} aporta`} value={pct(share)} detail={`${money(shown)} de utilidad`} icon={CircleDollarSign} tone="orange" />
+        <Metric label="Más rentable" value={list[0] ? label(list[0]) : '—'} detail={list[0] ? `${money(list[0].profit)} · margen ${pct(list[0].marginPercent)}` : undefined} icon={BarChart3} />
+      </div>
+      <NoCostNotice revenueWithoutCost={data.revenueWithoutCost} total={data.totalRevenue + (onlyCosted ? data.revenueWithoutCost : 0)} what={onlyCosted ? 'se dejaron fuera del cálculo; desmarca «Solo ventas con costo registrado» para incluirlas.' : 'la utilidad y el margen de esos productos están sobreestimados.'} />
+      <div className="overflow-x-auto rounded-2xl border bg-[hsl(var(--card))]">
+        <table className="w-full min-w-[860px] text-sm" data-testid="table-audit-top-products">
+          <thead><tr className="border-b bg-[hsl(var(--muted)/.45)] font-mono-app text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]"><th className="px-4 py-3 text-left">#</th><th className="px-4 py-3 text-left">Producto</th><th className="px-4 py-3 text-right">Unidades</th><th className="px-4 py-3 text-right">Ventas</th><th className="px-4 py-3 text-right">Costo</th><th className="px-4 py-3 text-right">Utilidad</th><th className="px-4 py-3 text-right">Margen</th><th className="px-4 py-3 text-left">% de la utilidad</th></tr></thead>
+          <tbody>{list.map((p, i) => <tr key={p.productId} className="border-b last:border-0" data-testid={`row-audit-product-${p.productId}`}>
+            <td className="px-4 py-3 font-mono-app font-bold text-[hsl(var(--muted-foreground))]">{i + 1}</td>
+            <td className="px-4 py-3"><p className="font-bold">{label(p)}</p>{p.code && <p className="font-mono-app text-xs text-[hsl(var(--primary))]">{p.code}</p>}</td>
+            <td className="px-4 py-3 text-right font-mono-app">{p.unitsSold}</td>
+            <td className="px-4 py-3 text-right font-mono-app">{money(p.revenue)}</td>
+            <td className="px-4 py-3 text-right font-mono-app">{money(p.cost)}</td>
+            <td className="px-4 py-3 text-right font-mono-app font-bold">{money(p.profit)}</td>
+            <td className="px-4 py-3 text-right font-mono-app">{pct(p.marginPercent)}{!onlyCosted && p.revenueWithoutCost > 0 && <span title={`${money(p.revenueWithoutCost)} vendidos con costo 0: margen sobreestimado`} className="ml-1 cursor-help text-[hsl(var(--primary))]" aria-label="Margen sobreestimado por ventas con costo 0">*</span>}</td>
+            <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="h-2 w-32 overflow-hidden rounded-full bg-[hsl(var(--muted))]" role="presentation"><div className="h-full rounded-full bg-[hsl(var(--primary))]" style={{ width: `${Math.max(2, (Math.max(0, p.profit) / maxProfit) * 100)}%` }} /></div><span className="font-mono-app text-xs">{data.totalProfit > 0 ? pct((p.profit / data.totalProfit) * 100) : '—'}</span></div></td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs text-[hsl(var(--muted-foreground))]">Utilidad = ventas − costo, con el costo registrado al momento de cada venta. Margen = utilidad ÷ ventas. Los productos se agrupan por producto aunque haya cambiado de precio en el período.</p>
+    </>}
+  </Shell>;
+}
+
 function SignInPage() { return <AuthCard mode="sign-in" />; }
 function SignUpPage() { return <AuthCard mode="sign-up" />; }
 
 function Routes() {
-  return <Switch><Route path="/" component={SignInPage} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route path="/app"><Protected><Dashboard /></Protected></Route><Route path="/app/productos"><Protected><Products /></Protected></Route><Route path="/app/venta"><Protected><SalePage /></Protected></Route><Route path="/app/compras"><Protected><Purchases /></Protected></Route><Route path="/app/proveedores"><Protected><SuppliersPage /></Protected></Route><Route path="/app/cartera"><Protected><CarteraPage /></Protected></Route><Route path="/app/clientes"><Protected><ClientsPage /></Protected></Route><Route path="/app/reportes"><Redirect to="/app/reportes/ventas" /></Route><Route path="/app/reportes/ventas"><Protected><SalesReport /></Protected></Route><Route path="/app/reportes/bajas"><Protected><StockoutsReport /></Protected></Route><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={SignInPage} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route path="/app"><Protected><Dashboard /></Protected></Route><Route path="/app/productos"><Protected><Products /></Protected></Route><Route path="/app/venta"><Protected><SalePage /></Protected></Route><Route path="/app/compras"><Protected><Purchases /></Protected></Route><Route path="/app/proveedores"><Protected><SuppliersPage /></Protected></Route><Route path="/app/cartera"><Protected><CarteraPage /></Protected></Route><Route path="/app/clientes"><Protected><ClientsPage /></Protected></Route><Route path="/app/reportes"><Redirect to="/app/reportes/ventas" /></Route><Route path="/app/reportes/ventas"><Protected><SalesReport /></Protected></Route><Route path="/app/reportes/bajas"><Protected><StockoutsReport /></Protected></Route><Route path="/app/auditoria"><Redirect to="/app/auditoria/ventas-mensuales" /></Route><Route path="/app/auditoria/ventas-mensuales"><Protected><AuditSalesByMonthPage /></Protected></Route><Route path="/app/auditoria/productos-rentables"><Protected><AuditTopProductsPage /></Protected></Route><Route component={NotFound} /></Switch>;
 }
 
 function App() {
   return <AuthProvider><QueryClientProvider client={queryClient}><TooltipProvider><CompanyProvider><WouterRouter base={basePath}><Routes /></WouterRouter><Toaster /></CompanyProvider></TooltipProvider></QueryClientProvider></AuthProvider>;
 }
 
+export { AuditSalesByMonthPage, AuditTopProductsPage };
 export default App;

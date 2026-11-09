@@ -798,6 +798,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SalesReport"
+  /audit/sales-by-month:
+    get:
+      operationId: getAuditSalesByMonth
+      tags: [audit]
+      summary: Auditoría - ventas totales por mes de la empresa activa
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Ventas agrupadas por mes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditSalesByMonth"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /audit/top-products:
+    get:
+      operationId: getAuditTopProducts
+      tags: [audit]
+      summary: Auditoría - productos más rentables de la empresa activa
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Fecha inicial (YYYY-MM-DD, hora de Colombia), inclusive.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Fecha final (YYYY-MM-DD, hora de Colombia), inclusive.
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          required: false
+          description: Cantidad máxima de productos a devolver (1 a 200, por defecto 25).
+          schema:
+            type: number
+            minimum: 1
+            maximum: 200
+        - name: excludeNoCost
+          in: query
+          required: false
+          description: Si es true, la rentabilidad se calcula solo con las ventas que tienen costo registrado (costo mayor a 0).
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Productos ordenados por utilidad estimada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditTopProducts"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /stockouts:
     get:
       operationId: listStockouts
@@ -1853,6 +1925,88 @@ components:
         potentialProfit:
           type: number
       required: [products, totalCostValue, totalSaleValue, potentialProfit]
+    AuditMonth:
+      type: object
+      properties:
+        month:
+          type: string
+          description: Mes en formato YYYY-MM (hora de Colombia).
+        saleCount:
+          type: number
+        itemCount:
+          type: number
+        totalSold:
+          type: number
+          description: Total vendido en productos (sin el costo de domicilio).
+        estimatedProfit:
+          type: number
+        averageTicket:
+          type: number
+        revenueWithoutCost:
+          type: number
+          description: Parte del total vendido que se registró con costo 0 (utilidad sobreestimada).
+      required: [month, saleCount, itemCount, totalSold, estimatedProfit, averageTicket, revenueWithoutCost]
+    AuditSalesByMonth:
+      type: object
+      properties:
+        months:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditMonth"
+        totalSold:
+          type: number
+        estimatedProfit:
+          type: number
+        saleCount:
+          type: number
+        itemCount:
+          type: number
+        revenueWithoutCost:
+          type: number
+      required: [months, totalSold, estimatedProfit, saleCount, itemCount, revenueWithoutCost]
+    AuditProduct:
+      type: object
+      properties:
+        productId:
+          type: number
+        code:
+          type: ["string", "null"]
+        name:
+          type: string
+        content:
+          type: ["string", "null"]
+        unitsSold:
+          type: number
+        revenue:
+          type: number
+        cost:
+          type: number
+        profit:
+          type: number
+        marginPercent:
+          type: number
+        revenueWithoutCost:
+          type: number
+          description: Ventas del producto registradas con costo 0 en el período.
+      required: [productId, code, name, content, unitsSold, revenue, cost, profit, marginPercent, revenueWithoutCost]
+    AuditTopProducts:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditProduct"
+        productCount:
+          type: number
+          description: Cantidad total de productos con ventas en el período (antes de aplicar el límite).
+        totalRevenue:
+          type: number
+        totalProfit:
+          type: number
+        revenueWithoutCost:
+          type: number
+          description: Total vendido con costo 0 en el período (de todos los productos).
+      required: [products, productCount, totalRevenue, totalProfit, revenueWithoutCost]
     SalesReport:
       type: object
       properties:

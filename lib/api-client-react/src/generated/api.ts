@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuditSalesByMonth,
+  AuditTopProducts,
   BadRequestResponse,
   Client,
   ClientCreditPaymentInput,
@@ -33,6 +35,8 @@ import type {
   DeleteSupplierInput,
   DeudaMoisesInput,
   Error,
+  GetAuditSalesByMonthParams,
+  GetAuditTopProductsParams,
   GetInventoryReportParams,
   GetProductMovementsParams,
   GetSalesReportParams,
@@ -2702,6 +2706,174 @@ export function useGetSalesReport<TData = Awaited<ReturnType<typeof getSalesRepo
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSalesReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAuditSalesByMonthUrl = (params?: GetAuditSalesByMonthParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/audit/sales-by-month?${stringifiedParams}` : `/api/audit/sales-by-month`
+}
+
+/**
+ * @summary Auditoría - ventas totales por mes de la empresa activa
+ */
+export const getAuditSalesByMonth = async (params?: GetAuditSalesByMonthParams, options?: Parameters<typeof customFetch>[1]): Promise<AuditSalesByMonth> => {
+
+  return customFetch<AuditSalesByMonth>(getGetAuditSalesByMonthUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAuditSalesByMonthQueryKey = (params?: GetAuditSalesByMonthParams,) => {
+    return [
+    `/api/audit/sales-by-month`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAuditSalesByMonthQueryOptions = <TData = Awaited<ReturnType<typeof getAuditSalesByMonth>>, TError = ErrorType<BadRequestResponse>>(params?: GetAuditSalesByMonthParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuditSalesByMonth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAuditSalesByMonthQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuditSalesByMonth>>> = ({ signal }) => getAuditSalesByMonth(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAuditSalesByMonth>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAuditSalesByMonthQueryResult = NonNullable<Awaited<ReturnType<typeof getAuditSalesByMonth>>>
+export type GetAuditSalesByMonthQueryError = ErrorType<BadRequestResponse>
+
+
+/**
+ * @summary Auditoría - ventas totales por mes de la empresa activa
+ */
+
+export function useGetAuditSalesByMonth<TData = Awaited<ReturnType<typeof getAuditSalesByMonth>>, TError = ErrorType<BadRequestResponse>>(
+ params?: GetAuditSalesByMonthParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuditSalesByMonth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAuditSalesByMonthQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAuditTopProductsUrl = (params?: GetAuditTopProductsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/audit/top-products?${stringifiedParams}` : `/api/audit/top-products`
+}
+
+/**
+ * @summary Auditoría - productos más rentables de la empresa activa
+ */
+export const getAuditTopProducts = async (params?: GetAuditTopProductsParams, options?: Parameters<typeof customFetch>[1]): Promise<AuditTopProducts> => {
+
+  return customFetch<AuditTopProducts>(getGetAuditTopProductsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAuditTopProductsQueryKey = (params?: GetAuditTopProductsParams,) => {
+    return [
+    `/api/audit/top-products`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAuditTopProductsQueryOptions = <TData = Awaited<ReturnType<typeof getAuditTopProducts>>, TError = ErrorType<BadRequestResponse>>(params?: GetAuditTopProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuditTopProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAuditTopProductsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuditTopProducts>>> = ({ signal }) => getAuditTopProducts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAuditTopProducts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAuditTopProductsQueryResult = NonNullable<Awaited<ReturnType<typeof getAuditTopProducts>>>
+export type GetAuditTopProductsQueryError = ErrorType<BadRequestResponse>
+
+
+/**
+ * @summary Auditoría - productos más rentables de la empresa activa
+ */
+
+export function useGetAuditTopProducts<TData = Awaited<ReturnType<typeof getAuditTopProducts>>, TError = ErrorType<BadRequestResponse>>(
+ params?: GetAuditTopProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuditTopProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAuditTopProductsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
