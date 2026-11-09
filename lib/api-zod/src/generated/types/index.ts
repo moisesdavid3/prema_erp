@@ -8,8 +8,10 @@
 
 export * from './auditMonth';
 export * from './auditProduct';
+export * from './auditProductTurnover';
 export * from './auditSalesByMonth';
 export * from './auditTopProducts';
+export * from './auditTurnoverProduct';
 export * from './badRequestResponse';
 export * from './client';
 export * from './clientCreditPaymentAllocation';
@@ -26,6 +28,7 @@ export * from './deleteSupplier200';
 export * from './deleteSupplierInput';
 export * from './deudaMoisesInput';
 export * from './error';
+export * from './getAuditProductTurnoverParams';
 export * from './getAuditSalesByMonthParams';
 export * from './getAuditTopProductsParams';
 export * from './getInventoryReportFilter';

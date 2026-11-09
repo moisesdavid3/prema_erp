@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { and, eq, sql } from "drizzle-orm";
-import { getDb, productsTable, saleItemsTable, salesTable } from "@workspace/db";
-import { GetAuditSalesByMonthResponse, GetAuditTopProductsResponse } from "@workspace/api-zod";
+import { getDb, inventoryMovementsTable, productsTable, saleItemsTable, salesTable } from "@workspace/db";
+import { GetAuditProductTurnoverResponse, GetAuditSalesByMonthResponse, GetAuditTopProductsResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireCompany } from "../middlewares/requireCompany";
 import { endOfDayBogota, saleWhere, startOfDayBogota } from "../lib/inventory-service";
@@ -164,6 +164,126 @@ router.get("/audit/top-products", async (req, res): Promise<void> => {
     totalRevenue: products.reduce((s, p) => s + p.revenue, 0),
     totalProfit: products.reduce((s, p) => s + p.profit, 0),
     revenueWithoutCost: all.reduce((s, p) => s + p.revenueWithoutCost, 0),
+  }));
+});
+
+const bogotaDay = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" });
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Rotación de productos.
+ *  - rotación = unidades vendidas ÷ existencia promedio del período, ponderada por el tiempo que estuvo cada nivel
+ *    (las existencias negativas cuentan como 0 y el promedio no baja de 1 unidad, para que un producto casi siempre
+ *    agotado no dispare el indicador);
+ *  - la existencia al inicio se reconstruye desde la existencia actual restando los movimientos desde esa fecha,
+ *    así no depende de huecos antiguos en el historial;
+ *  - días de inventario = existencia actual ÷ unidades vendidas por día.
+ * Mayor rotación: productos activos con al menos 3 unidades vendidas en el período. Menor rotación: productos activos con
+ * existencia hoy, empezando por los que no vendieron nada (primero los de más capital inmovilizado).
+ */
+router.get("/audit/product-turnover", async (req, res): Promise<void> => {
+  const parsed = parseRange(req.query);
+  if ("error" in parsed) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const now = new Date();
+  const to = parsed.to ?? endOfDayBogota(now);
+  const from = parsed.from ?? startOfDayBogota(new Date(to.getTime() - 89 * DAY_MS));
+  if (from > to) {
+    res.status(400).json({ error: "El rango de fechas no es válido." });
+    return;
+  }
+  const days = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / DAY_MS));
+  const rawLimit = typeof req.query.limit === "string" ? Number(req.query.limit) : 15;
+  const limit = Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 100 ? rawLimit : 15;
+  const companyId = req.companyId!;
+  const db = getDb();
+
+  const [products, soldRows, lastSaleRows, moveRows] = await Promise.all([
+    db.select().from(productsTable).where(and(eq(productsTable.companyId, companyId), eq(productsTable.active, true))),
+    db.select({ productId: saleItemsTable.productId, units: sql<number>`coalesce(sum(${saleItemsTable.quantity}), 0)::bigint` })
+      .from(saleItemsTable)
+      .innerJoin(salesTable, sql`${saleItemsTable.saleId} = ${salesTable.id}`)
+      .where(saleWhere(companyId, { from, to }))
+      .groupBy(saleItemsTable.productId),
+    db.select({ productId: saleItemsTable.productId, last: sql<Date>`max(${salesTable.createdAt})` })
+      .from(saleItemsTable)
+      .innerJoin(salesTable, sql`${saleItemsTable.saleId} = ${salesTable.id}`)
+      .where(eq(salesTable.companyId, companyId))
+      .groupBy(saleItemsTable.productId),
+    db.select({
+      productId: inventoryMovementsTable.productId,
+      quantity: inventoryMovementsTable.quantity,
+      createdAt: inventoryMovementsTable.createdAt,
+    })
+      .from(inventoryMovementsTable)
+      .where(and(eq(inventoryMovementsTable.companyId, companyId), sql`${inventoryMovementsTable.createdAt} >= ${from.toISOString()}::timestamptz`))
+      .orderBy(inventoryMovementsTable.createdAt, inventoryMovementsTable.id),
+  ]);
+  const sold = new Map(soldRows.map((r) => [r.productId, Number(r.units)]));
+  const lastSale = new Map(lastSaleRows.map((r) => [r.productId, r.last ? bogotaDay.format(new Date(r.last)) : null]));
+  // Movimientos desde el inicio, por producto: los del período sirven para promediar la existencia en el tiempo
+  // y todos juntos (incluso los posteriores al fin) para reconstruir la existencia al inicio.
+  const movesByProduct = new Map<number, { sinceFrom: number; inRange: { t: number; q: number }[] }>();
+  for (const r of moveRows) {
+    const entry = movesByProduct.get(r.productId) ?? { sinceFrom: 0, inRange: [] };
+    entry.sinceFrom += r.quantity;
+    const t = new Date(r.createdAt).getTime();
+    if (t <= to.getTime()) entry.inRange.push({ t, q: r.quantity });
+    movesByProduct.set(r.productId, entry);
+  }
+  const span = Math.max(1, to.getTime() - from.getTime());
+
+  const rows = products.map((p) => {
+    const m = movesByProduct.get(p.id) ?? { sinceFrom: 0, inRange: [] };
+    let level = p.stock - m.sinceFrom;
+    let cursor = from.getTime();
+    let weighted = 0;
+    for (const mv of m.inRange) {
+      weighted += Math.max(level, 0) * Math.max(0, mv.t - cursor);
+      level += mv.q;
+      cursor = Math.max(cursor, mv.t);
+    }
+    weighted += Math.max(level, 0) * Math.max(0, to.getTime() - cursor);
+    const averageStock = weighted / span;
+    const unitsSold = sold.get(p.id) ?? 0;
+    const unitsPerDay = unitsSold / days;
+    return {
+      productId: p.id,
+      code: p.code || null,
+      name: p.name,
+      content: p.content || null,
+      unitsSold,
+      stock: p.stock,
+      averageStock: Math.round(averageStock * 10) / 10,
+      rotation: Math.round((unitsSold / Math.max(averageStock, 1)) * 100) / 100,
+      unitsPerDay: Math.round(unitsPerDay * 100) / 100,
+      daysOfInventory: unitsSold > 0 && p.stock > 0 ? Math.round(p.stock / unitsPerDay) : null,
+      inventoryCost: Math.max(p.stock, 0) * p.cost,
+      lastSaleDate: lastSale.get(p.id) ?? null,
+    };
+  });
+
+  const highest = rows
+    .filter((r) => r.unitsSold >= 3)
+    .sort((a, b) => b.rotation - a.rotation || b.unitsSold - a.unitsSold)
+    .slice(0, limit);
+  const withStock = rows.filter((r) => r.stock > 0);
+  const lowest = withStock
+    .sort((a, b) => a.rotation - b.rotation || b.inventoryCost - a.inventoryCost)
+    .slice(0, limit);
+  const withoutSales = withStock.filter((r) => r.unitsSold === 0);
+
+  res.json(GetAuditProductTurnoverResponse.parse({
+    from: bogotaDay.format(from),
+    to: bogotaDay.format(to),
+    days,
+    highest,
+    lowest,
+    productsWithSales: rows.filter((r) => r.unitsSold > 0).length,
+    productsWithoutSales: withoutSales.length,
+    withoutSalesInventoryCost: withoutSales.reduce((sum, r) => sum + r.inventoryCost, 0),
   }));
 });
 

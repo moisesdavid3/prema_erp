@@ -549,6 +549,50 @@ export interface AuditProduct {
   revenueWithoutCost: number;
 }
 
+export interface AuditTurnoverProduct {
+  productId: number;
+  /** @nullable */
+  code: string | null;
+  name: string;
+  /** @nullable */
+  content: string | null;
+  /** Unidades vendidas en el período. */
+  unitsSold: number;
+  /** Existencia actual. */
+  stock: number;
+  /** Promedio entre la existencia al inicio y al final del período. */
+  averageStock: number;
+  /** Veces que rotó el inventario en el período (unidades vendidas ÷ existencia promedio). */
+  rotation: number;
+  unitsPerDay: number;
+  /**
+     * Días que alcanza la existencia actual al ritmo de venta del período. Nulo si no hubo ventas.
+     * @nullable
+     */
+  daysOfInventory: number | null;
+  /** Existencia actual valorada al costo. */
+  inventoryCost: number;
+  /**
+     * Fecha de la última venta registrada (YYYY-MM-DD), aunque sea anterior al período.
+     * @nullable
+     */
+  lastSaleDate: string | null;
+}
+
+export interface AuditProductTurnover {
+  from: string;
+  to: string;
+  days: number;
+  highest: AuditTurnoverProduct[];
+  lowest: AuditTurnoverProduct[];
+  /** Productos activos con ventas en el período. */
+  productsWithSales: number;
+  /** Productos activos con existencia y sin ventas en el período. */
+  productsWithoutSales: number;
+  /** Valor al costo de la existencia de los productos sin ventas en el período. */
+  withoutSalesInventoryCost: number;
+}
+
 export interface AuditTopProducts {
   products: AuditProduct[];
   /** Cantidad total de productos con ventas en el período (antes de aplicar el límite). */
@@ -784,6 +828,23 @@ limit?: number;
  * Si es true, la rentabilidad se calcula solo con las ventas que tienen costo registrado (costo mayor a 0).
  */
 excludeNoCost?: boolean;
+};
+
+export type GetAuditProductTurnoverParams = {
+/**
+ * Fecha inicial (YYYY-MM-DD, hora de Colombia). Por defecto, 90 días atrás.
+ */
+from?: string;
+/**
+ * Fecha final (YYYY-MM-DD, hora de Colombia). Por defecto, hoy.
+ */
+to?: string;
+/**
+ * Cantidad de productos por lista (1 a 100, por defecto 15).
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type ListStockoutsParams = {

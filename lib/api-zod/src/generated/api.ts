@@ -1092,6 +1092,57 @@ export const GetAuditTopProductsResponse = zod.object({
 
 
 /**
+ * @summary Auditoría - productos con mayor y menor rotación de la empresa activa
+ */
+export const getAuditProductTurnoverQueryLimitMax = 100;
+
+
+
+export const GetAuditProductTurnoverQueryParams = zod.object({
+  "from": zod.date().optional().describe('Fecha inicial (YYYY-MM-DD, hora de Colombia). Por defecto, 90 días atrás.'),
+  "to": zod.date().optional().describe('Fecha final (YYYY-MM-DD, hora de Colombia). Por defecto, hoy.'),
+  "limit": zod.coerce.number().min(1).max(getAuditProductTurnoverQueryLimitMax).optional().describe('Cantidad de productos por lista (1 a 100, por defecto 15).')
+})
+
+export const GetAuditProductTurnoverResponse = zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "days": zod.number(),
+  "highest": zod.array(zod.object({
+  "productId": zod.number(),
+  "code": zod.string().nullable(),
+  "name": zod.string(),
+  "content": zod.string().nullable(),
+  "unitsSold": zod.number().describe('Unidades vendidas en el período.'),
+  "stock": zod.number().describe('Existencia actual.'),
+  "averageStock": zod.number().describe('Promedio entre la existencia al inicio y al final del período.'),
+  "rotation": zod.number().describe('Veces que rotó el inventario en el período (unidades vendidas ÷ existencia promedio).'),
+  "unitsPerDay": zod.number(),
+  "daysOfInventory": zod.number().nullable().describe('Días que alcanza la existencia actual al ritmo de venta del período. Nulo si no hubo ventas.'),
+  "inventoryCost": zod.number().describe('Existencia actual valorada al costo.'),
+  "lastSaleDate": zod.string().nullable().describe('Fecha de la última venta registrada (YYYY-MM-DD), aunque sea anterior al período.')
+})),
+  "lowest": zod.array(zod.object({
+  "productId": zod.number(),
+  "code": zod.string().nullable(),
+  "name": zod.string(),
+  "content": zod.string().nullable(),
+  "unitsSold": zod.number().describe('Unidades vendidas en el período.'),
+  "stock": zod.number().describe('Existencia actual.'),
+  "averageStock": zod.number().describe('Promedio entre la existencia al inicio y al final del período.'),
+  "rotation": zod.number().describe('Veces que rotó el inventario en el período (unidades vendidas ÷ existencia promedio).'),
+  "unitsPerDay": zod.number(),
+  "daysOfInventory": zod.number().nullable().describe('Días que alcanza la existencia actual al ritmo de venta del período. Nulo si no hubo ventas.'),
+  "inventoryCost": zod.number().describe('Existencia actual valorada al costo.'),
+  "lastSaleDate": zod.string().nullable().describe('Fecha de la última venta registrada (YYYY-MM-DD), aunque sea anterior al período.')
+})),
+  "productsWithSales": zod.number().describe('Productos activos con ventas en el período.'),
+  "productsWithoutSales": zod.number().describe('Productos activos con existencia y sin ventas en el período.'),
+  "withoutSalesInventoryCost": zod.number().describe('Valor al costo de la existencia de los productos sin ventas en el período.')
+})
+
+
+/**
  * @summary List stockouts (bajas de inventario) for a month
  */
 export const ListStockoutsQueryParams = zod.object({

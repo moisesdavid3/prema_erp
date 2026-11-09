@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, useMutation, useQueries, useQueryClie
 import {
   ArrowRight, ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Box, Check, ChevronDown, CircleDollarSign, ClipboardList,
   CreditCard, Download, History, Home as HomeIcon, LayoutDashboard, LogOut, Menu, PackagePlus, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Printer, ReceiptText, Search, ShoppingBasket,
-  ShieldCheck, ShoppingCart, SlidersHorizontal, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Upload, Users, Wallet, X
+  Repeat, ShieldCheck, ShoppingCart, SlidersHorizontal, Sparkles, Trash2, Truck, TriangleAlert, TrendingUp, Upload, Users, Wallet, X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -12,7 +12,7 @@ import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, use
 import {
   getGetDashboardQueryKey, getGetProductMovementsQueryKey, getGetSalesReportQueryKey, getListClientsQueryKey, getListCreditPaymentsQueryKey, getListManualCreditPaymentsQueryKey, getListManualCreditsQueryKey, getListProductsQueryKey, getListPurchasesQueryKey, getListSalesQueryKey, getListStockoutsQueryKey, getListSuppliersQueryKey, listCreditPayments, listManualCreditPayments, patchSaleDetails, createManualCredit, createClientCreditPayment, useUpdatePurchase,
   useCreateClient, useCreateProduct, useCreatePurchase, useCreateSale, useCreateSupplier, useCreateStockout, useDeleteClient, useDeleteCreditPayment, useDeleteManualCredit, useDeleteProduct, useDeletePurchase, useDeleteSale, useDeleteStockout, useDeleteStockoutItem,
-  useGetAuditSalesByMonth, useGetAuditTopProducts, getGetAuditSalesByMonthQueryKey, getGetAuditTopProductsQueryKey, useGetDashboard, useGetInventoryReport, useGetProductMovements, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
+  useGetAuditProductTurnover, useGetAuditSalesByMonth, useGetAuditTopProducts, getGetAuditProductTurnoverQueryKey, getGetAuditSalesByMonthQueryKey, getGetAuditTopProductsQueryKey, useGetDashboard, useGetInventoryReport, useGetProductMovements, useGetSalesReport, useImportPurchases, useListClients, useListCompanies, useListCreditPayments, useListLastCreditPayments, useListManualCredits, useListProducts, useListPurchases, useListSales, useListStockouts, useListSuppliers, useUpdateStockoutItem,
   useUpdateClient, useUpdateDeudaMoises, useUpdateProduct, useUpdateSupplier, useDeleteSupplier
 } from '@workspace/api-client-react';
 import type { Client, CreditPayment, ManualCredit, PaymentActivity, Product, Purchase, PurchaseImportResult, PurchaseInput, Sale, Stockout, StockoutItem, SupplierSummary } from '@workspace/api-client-react';
@@ -308,7 +308,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     { label: 'Compras', icon: ShoppingBasket, children: [{ href: '/app/compras', label: 'Compras', icon: ShoppingBasket }, { href: '/app/proveedores', label: 'Proveedores', icon: Truck }] },
     { label: 'Cartera', icon: CreditCard, children: [{ href: '/app/cartera', label: 'Cartera', icon: CreditCard }, { href: '/app/clientes', label: 'Clientes', icon: Users }] },
     { label: 'Reportes', icon: BarChart3, children: [{ href: '/app/reportes/ventas', label: 'Reporte de ventas', icon: ReceiptText }, { href: '/app/reportes/bajas', label: 'Bajas de inventario', icon: Box }] },
-    { label: 'Auditoría', icon: ShieldCheck, children: [{ href: '/app/auditoria/ventas-mensuales', label: 'Ventas por mes', icon: BarChart3 }, { href: '/app/auditoria/productos-rentables', label: 'Productos más rentables', icon: TrendingUp }] },
+    { label: 'Auditoría', icon: ShieldCheck, children: [{ href: '/app/auditoria/ventas-mensuales', label: 'Ventas por mes', icon: BarChart3 }, { href: '/app/auditoria/productos-rentables', label: 'Productos más rentables', icon: TrendingUp }, { href: '/app/auditoria/rotacion', label: 'Rotación de productos', icon: Repeat }] },
   ];
   return <div className="min-h-[100dvh] bg-background">
     <aside className={`fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col bg-[hsl(var(--sidebar))] px-5 py-6 text-[hsl(var(--sidebar-foreground))] transition-transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'}`}>
@@ -2332,16 +2332,21 @@ const pct = (v: number) => `${v.toLocaleString('es-CO', { maximumFractionDigits:
 const auditLast12MonthsFrom = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 11); return toLocalDateString(d); };
 const todayString = () => toLocalDateString(new Date());
 
-function AuditRangeFilter({ from, to, setFrom, setTo }: { from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void }) {
+type AuditPreset = { label: string; testid: string; range: () => { from: string; to: string } };
+const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return toLocalDateString(d); };
+const AUDIT_DEFAULT_PRESETS: AuditPreset[] = [
+  { label: 'Últimos 12 meses', testid: 'button-audit-12m', range: () => ({ from: auditLast12MonthsFrom(), to: todayString() }) },
+  { label: 'Este año', testid: 'button-audit-year', range: () => ({ from: `${new Date().getFullYear()}-01-01`, to: todayString() }) },
+  { label: 'Todo el historial', testid: 'button-audit-all', range: () => ({ from: '', to: '' }) },
+];
+
+function AuditRangeFilter({ from, to, setFrom, setTo, presets = AUDIT_DEFAULT_PRESETS }: { from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; presets?: AuditPreset[] }) {
   const dateClass = 'h-11 w-full rounded-xl border bg-[hsl(var(--card))] px-3.5 font-normal outline-none transition-colors focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary)/.15)]';
-  const year = new Date().getFullYear();
   return <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
     <label className="grid gap-1.5 text-sm font-semibold sm:w-44"><span>Desde</span><input type="date" max={to || undefined} value={from} onChange={(e) => setFrom(e.target.value)} className={dateClass} data-testid="input-audit-from" /></label>
     <label className="grid gap-1.5 text-sm font-semibold sm:w-44"><span>Hasta</span><input type="date" min={from || undefined} value={to} onChange={(e) => setTo(e.target.value)} className={dateClass} data-testid="input-audit-to" /></label>
     <div className="flex flex-wrap gap-2">
-      <Button type="button" variant="secondary" className="min-h-[44px] px-3 text-sm" onClick={() => { setFrom(auditLast12MonthsFrom()); setTo(todayString()); }} data-testid="button-audit-12m">Últimos 12 meses</Button>
-      <Button type="button" variant="secondary" className="min-h-[44px] px-3 text-sm" onClick={() => { setFrom(`${year}-01-01`); setTo(todayString()); }} data-testid="button-audit-year">Este año</Button>
-      <Button type="button" variant="secondary" className="min-h-[44px] px-3 text-sm" onClick={() => { setFrom(''); setTo(''); }} data-testid="button-audit-all">Todo el historial</Button>
+      {presets.map((pr) => <Button key={pr.testid} type="button" variant="secondary" className="min-h-[44px] px-3 text-sm" onClick={() => { const r = pr.range(); setFrom(r.from); setTo(r.to); }} data-testid={pr.testid}>{pr.label}</Button>)}
     </div>
   </div>;
 }
@@ -2448,16 +2453,72 @@ function AuditTopProductsPage() {
   </Shell>;
 }
 
+const TURNOVER_PRESETS: AuditPreset[] = [
+  { label: 'Últimos 30 días', testid: 'button-audit-30d', range: () => ({ from: daysAgo(29), to: todayString() }) },
+  { label: 'Últimos 90 días', testid: 'button-audit-90d', range: () => ({ from: daysAgo(89), to: todayString() }) },
+  { label: 'Últimos 6 meses', testid: 'button-audit-6m', range: () => ({ from: daysAgo(181), to: todayString() }) },
+];
+
+function AuditTurnoverPage() {
+  const { activeCompany } = useCompany();
+  const [from, setFrom] = useState(() => daysAgo(89)); const [to, setTo] = useState(todayString); const [top, setTop] = useState('15');
+  const valid = !!from && !!to && from <= to;
+  const params = { from, to, limit: Number(top) };
+  const report = useGetAuditProductTurnover(params, { query: { queryKey: getGetAuditProductTurnoverQueryKey(params), enabled: valid } });
+  const data = report.data;
+  const label = (p: { name: string; content?: string | null }) => [p.name, p.content].filter(Boolean).join(' x ');
+  const num = (v: number) => v.toLocaleString('es-CO', { maximumFractionDigits: 1 });
+  const lastSale = (d: string | null) => d ? new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`)) : 'Sin ventas';
+  const exportRows = (): (string | number)[][] => {
+    const row = (group: string, p: NonNullable<typeof data>['highest'][number], i: number): (string | number)[] => [group, i + 1, p.code || '', label(p), p.unitsSold, p.stock, p.averageStock, p.rotation, p.unitsPerDay, p.daysOfInventory ?? '', p.inventoryCost, p.lastSaleDate ?? ''];
+    return [['Grupo', 'Posición', 'Código', 'Producto', 'Unidades vendidas', 'Existencia hoy', 'Existencia promedio', 'Rotación (veces)', 'Unidades por día', 'Días de inventario', 'Inventario a costo', 'Última venta'], ...(data?.highest ?? []).map((p, i) => row('Mayor rotación', p, i)), ...(data?.lowest ?? []).map((p, i) => row('Menor rotación', p, i))];
+  };
+  const fileBase = `auditoria-rotacion-${from}-a-${to}`;
+  const table = (rows: NonNullable<typeof data>['highest'], kind: 'highest' | 'lowest') => <div className="overflow-x-auto rounded-2xl border bg-[hsl(var(--card))]">
+    <table className="w-full min-w-[820px] text-sm" data-testid={`table-audit-turnover-${kind}`}>
+      <thead><tr className="border-b bg-[hsl(var(--muted)/.45)] font-mono-app text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]"><th className="px-4 py-3 text-left">#</th><th className="px-4 py-3 text-left">Producto</th><th className="px-4 py-3 text-right">Vendidas</th><th className="px-4 py-3 text-right">Existencia hoy</th><th className="px-4 py-3 text-right">Rotación</th><th className="px-4 py-3 text-right">Días de inventario</th><th className="px-4 py-3 text-right">Inventario a costo</th><th className="px-4 py-3 text-left">Última venta</th></tr></thead>
+      <tbody>{rows.map((p, i) => <tr key={p.productId} className="border-b last:border-0" data-testid={`row-audit-turnover-${kind}-${p.productId}`}>
+        <td className="px-4 py-3 font-mono-app font-bold text-[hsl(var(--muted-foreground))]">{i + 1}</td>
+        <td className="px-4 py-3"><p className="font-bold">{label(p)}</p>{p.code && <p className="font-mono-app text-xs text-[hsl(var(--primary))]">{p.code}</p>}</td>
+        <td className="px-4 py-3 text-right font-mono-app">{p.unitsSold}</td>
+        <td className={`px-4 py-3 text-right font-mono-app ${p.stock <= 0 ? 'font-bold text-[hsl(var(--destructive))]' : ''}`}>{p.stock}</td>
+        <td className="px-4 py-3 text-right font-mono-app font-bold">{p.rotation === 0 ? '0' : `${num(p.rotation)}x`}</td>
+        <td className="px-4 py-3 text-right font-mono-app">{p.daysOfInventory === null ? '—' : p.daysOfInventory}</td>
+        <td className="px-4 py-3 text-right font-mono-app">{money(p.inventoryCost)}</td>
+        <td className={`px-4 py-3 ${p.lastSaleDate ? '' : 'font-semibold text-[hsl(var(--destructive))]'}`}>{lastSale(p.lastSaleDate)}</td>
+      </tr>)}</tbody>
+    </table>
+  </div>;
+  return <Shell>
+    <PageHeading eyebrow={`Auditoría · ${activeCompany?.name ?? ''}`} title="Rotación de productos" description="Qué productos se venden rápido frente a lo que hay en bodega y cuáles se quedan quietos, para decidir qué comprar y qué liquidar." action={<div className="flex gap-2"><Button variant="secondary" className="min-h-[40px] px-3 text-sm" disabled={!data} onClick={() => downloadBlob(new Blob([toCsv(exportRows())], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`)} data-testid="button-audit-turnover-csv"><Download size={15} /> CSV</Button><Button variant="secondary" className="min-h-[40px] px-3 text-sm" disabled={!data} onClick={() => { buildXlsxBlob(exportRows()).then((blob) => downloadBlob(blob, `${fileBase}.xlsx`)); }} data-testid="button-audit-turnover-xlsx"><Download size={15} /> XLSX</Button></div>} />
+    <div className="mb-4"><AuditRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} presets={TURNOVER_PRESETS} /></div>
+    <div className="mb-6 grid gap-1.5 sm:w-40"><span className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Productos por lista</span><Combo value={top} onChange={setTop} placeholder="Cantidad" testid="select-audit-turnover-top" options={[{ value: '10', label: '10' }, { value: '15', label: '15' }, { value: '25', label: '25' }, { value: '50', label: '50' }]} /></div>
+    {!valid ? <StatusMessage type="empty" text="Elige un rango válido: «Desde» y «Hasta» son obligatorios y «Desde» no puede ser posterior a «Hasta»." /> : report.isLoading ? <div className="grid gap-3">{[1, 2, 3].map((n) => <div key={n} className="h-24 animate-pulse rounded-2xl bg-[hsl(var(--muted))]" />)}</div> : report.isError || !data ? <StatusMessage text="No pudimos cargar el reporte de rotación." onRetry={() => report.refetch()} /> : <>
+      <section className="mb-8" aria-labelledby="turnover-highest">
+        <h2 id="turnover-highest" className="font-display text-2xl font-bold">Mayor rotación</h2>
+        <p className="mb-3 mt-1 text-sm text-[hsl(var(--muted-foreground))]">Se venden rápido frente a lo que tienen en existencia: cuidar que no se agoten. Solo cuentan los que vendieron 3 o más unidades en {data.days} días.</p>
+        {data.highest.length === 0 ? <StatusMessage type="empty" text="Ningún producto vendió 3 o más unidades en ese rango." /> : table(data.highest, 'highest')}
+      </section>
+      <section aria-labelledby="turnover-lowest">
+        <h2 id="turnover-lowest" className="font-display text-2xl font-bold">Menor rotación</h2>
+        <p className="mb-3 mt-1 text-sm text-[hsl(var(--muted-foreground))]">Tienen existencia, pero se venden poco o nada. {data.productsWithoutSales > 0 ? <><b data-testid="text-audit-turnover-nosales">{data.productsWithoutSales} {data.productsWithoutSales === 1 ? 'producto con existencia no tuvo' : 'productos con existencia no tuvieron'} ventas</b> en el período y suman <b>{money(data.withoutSalesInventoryCost)}</b> al costo.</> : 'Todos los productos con existencia tuvieron ventas en el período.'}</p>
+        {data.lowest.length === 0 ? <StatusMessage type="empty" text="No hay productos activos con existencia." /> : table(data.lowest, 'lowest')}
+      </section>
+      <p className="mt-4 text-xs text-[hsl(var(--muted-foreground))]">Rotación = unidades vendidas ÷ existencia promedio del período (las veces que se «renovó» el inventario; mínimo 1 unidad de promedio). Días de inventario = existencia de hoy ÷ ventas por día del período. Los de menor rotación se ordenan primero por los que no vendieron nada y, entre ellos, por el valor del inventario. Solo productos activos. Existencias negativas cuentan como 0.</p>
+    </>}
+  </Shell>;
+}
+
 function SignInPage() { return <AuthCard mode="sign-in" />; }
 function SignUpPage() { return <AuthCard mode="sign-up" />; }
 
 function Routes() {
-  return <Switch><Route path="/" component={SignInPage} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route path="/app"><Protected><Dashboard /></Protected></Route><Route path="/app/productos"><Protected><Products /></Protected></Route><Route path="/app/venta"><Protected><SalePage /></Protected></Route><Route path="/app/compras"><Protected><Purchases /></Protected></Route><Route path="/app/proveedores"><Protected><SuppliersPage /></Protected></Route><Route path="/app/cartera"><Protected><CarteraPage /></Protected></Route><Route path="/app/clientes"><Protected><ClientsPage /></Protected></Route><Route path="/app/reportes"><Redirect to="/app/reportes/ventas" /></Route><Route path="/app/reportes/ventas"><Protected><SalesReport /></Protected></Route><Route path="/app/reportes/bajas"><Protected><StockoutsReport /></Protected></Route><Route path="/app/auditoria"><Redirect to="/app/auditoria/ventas-mensuales" /></Route><Route path="/app/auditoria/ventas-mensuales"><Protected><AuditSalesByMonthPage /></Protected></Route><Route path="/app/auditoria/productos-rentables"><Protected><AuditTopProductsPage /></Protected></Route><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={SignInPage} /><Route path="/sign-in/*?" component={SignInPage} /><Route path="/sign-up/*?" component={SignUpPage} /><Route path="/app"><Protected><Dashboard /></Protected></Route><Route path="/app/productos"><Protected><Products /></Protected></Route><Route path="/app/venta"><Protected><SalePage /></Protected></Route><Route path="/app/compras"><Protected><Purchases /></Protected></Route><Route path="/app/proveedores"><Protected><SuppliersPage /></Protected></Route><Route path="/app/cartera"><Protected><CarteraPage /></Protected></Route><Route path="/app/clientes"><Protected><ClientsPage /></Protected></Route><Route path="/app/reportes"><Redirect to="/app/reportes/ventas" /></Route><Route path="/app/reportes/ventas"><Protected><SalesReport /></Protected></Route><Route path="/app/reportes/bajas"><Protected><StockoutsReport /></Protected></Route><Route path="/app/auditoria"><Redirect to="/app/auditoria/ventas-mensuales" /></Route><Route path="/app/auditoria/ventas-mensuales"><Protected><AuditSalesByMonthPage /></Protected></Route><Route path="/app/auditoria/productos-rentables"><Protected><AuditTopProductsPage /></Protected></Route><Route path="/app/auditoria/rotacion"><Protected><AuditTurnoverPage /></Protected></Route><Route component={NotFound} /></Switch>;
 }
 
 function App() {
   return <AuthProvider><QueryClientProvider client={queryClient}><TooltipProvider><CompanyProvider><WouterRouter base={basePath}><Routes /></WouterRouter><Toaster /></CompanyProvider></TooltipProvider></QueryClientProvider></AuthProvider>;
 }
 
-export { AuditSalesByMonthPage, AuditTopProductsPage };
+export { AuditSalesByMonthPage, AuditTopProductsPage, AuditTurnoverPage };
 export default App;

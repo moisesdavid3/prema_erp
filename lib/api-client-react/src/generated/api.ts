@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuditProductTurnover,
   AuditSalesByMonth,
   AuditTopProducts,
   BadRequestResponse,
@@ -35,6 +36,7 @@ import type {
   DeleteSupplierInput,
   DeudaMoisesInput,
   Error,
+  GetAuditProductTurnoverParams,
   GetAuditSalesByMonthParams,
   GetAuditTopProductsParams,
   GetInventoryReportParams,
@@ -2874,6 +2876,90 @@ export function useGetAuditTopProducts<TData = Awaited<ReturnType<typeof getAudi
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAuditTopProductsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAuditProductTurnoverUrl = (params?: GetAuditProductTurnoverParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/audit/product-turnover?${stringifiedParams}` : `/api/audit/product-turnover`
+}
+
+/**
+ * @summary Auditoría - productos con mayor y menor rotación de la empresa activa
+ */
+export const getAuditProductTurnover = async (params?: GetAuditProductTurnoverParams, options?: Parameters<typeof customFetch>[1]): Promise<AuditProductTurnover> => {
+
+  return customFetch<AuditProductTurnover>(getGetAuditProductTurnoverUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAuditProductTurnoverQueryKey = (params?: GetAuditProductTurnoverParams,) => {
+    return [
+    `/api/audit/product-turnover`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAuditProductTurnoverQueryOptions = <TData = Awaited<ReturnType<typeof getAuditProductTurnover>>, TError = ErrorType<BadRequestResponse>>(params?: GetAuditProductTurnoverParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuditProductTurnover>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAuditProductTurnoverQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuditProductTurnover>>> = ({ signal }) => getAuditProductTurnover(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAuditProductTurnover>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAuditProductTurnoverQueryResult = NonNullable<Awaited<ReturnType<typeof getAuditProductTurnover>>>
+export type GetAuditProductTurnoverQueryError = ErrorType<BadRequestResponse>
+
+
+/**
+ * @summary Auditoría - productos con mayor y menor rotación de la empresa activa
+ */
+
+export function useGetAuditProductTurnover<TData = Awaited<ReturnType<typeof getAuditProductTurnover>>, TError = ErrorType<BadRequestResponse>>(
+ params?: GetAuditProductTurnoverParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuditProductTurnover>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAuditProductTurnoverQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

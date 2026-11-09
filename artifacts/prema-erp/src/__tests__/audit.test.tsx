@@ -38,6 +38,8 @@ vi.mock('recharts', () => ({
 
 const salesState: { data?: any; isLoading: boolean; isError: boolean } = { isLoading: false, isError: false };
 const productsState: { data?: any; isLoading: boolean; isError: boolean } = { isLoading: false, isError: false };
+const turnoverState: { data?: any; isLoading: boolean; isError: boolean } = { isLoading: false, isError: false };
+const turnoverHook = vi.fn();
 const salesHook = vi.fn();
 const productsHook = vi.fn();
 
@@ -47,10 +49,11 @@ vi.mock('@workspace/api-client-react', async (importOriginal) => {
     ...actual,
     useGetAuditSalesByMonth: (...args: any[]) => { salesHook(...args); return { ...salesState, refetch: vi.fn() }; },
     useGetAuditTopProducts: (...args: any[]) => { productsHook(...args); return { ...productsState, refetch: vi.fn() }; },
+    useGetAuditProductTurnover: (...args: any[]) => { turnoverHook(...args); return { ...turnoverState, refetch: vi.fn() }; },
   };
 });
 
-import { AuditSalesByMonthPage, AuditTopProductsPage } from '@/App';
+import { AuditSalesByMonthPage, AuditTopProductsPage, AuditTurnoverPage } from '@/App';
 
 const month = (m: string, over: Partial<Record<string, number>> = {}) => ({ month: m, saleCount: 10, itemCount: 40, totalSold: 1000000, estimatedProfit: 400000, averageTicket: 100000, revenueWithoutCost: 0, ...over });
 const wrap = (ui: React.ReactElement) => render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
@@ -59,6 +62,7 @@ beforeEach(() => {
   salesHook.mockClear(); productsHook.mockClear();
   salesState.isLoading = false; salesState.isError = false;
   productsState.isLoading = false; productsState.isError = false;
+  turnoverHook.mockClear(); turnoverState.isLoading = false; turnoverState.isError = false;
 });
 
 describe('Auditoría · ventas por mes', () => {
@@ -143,5 +147,50 @@ describe('Auditoría · productos más rentables', () => {
     productsState.data = { products: [], productCount: 0, totalRevenue: 0, totalProfit: 0, revenueWithoutCost: 0 };
     wrap(<AuditTopProductsPage />);
     expect(screen.getByText(/No hay ventas con costo registrado/i)).toBeInTheDocument();
+  });
+});
+
+describe('Auditoría · rotación de productos', () => {
+  const item = (over: Record<string, unknown>) => ({ productId: 1, code: 'P-001', name: 'Pan de Coco', content: null, unitsSold: 56, stock: 3, averageStock: 3.1, rotation: 18.01, unitsPerDay: 0.62, daysOfInventory: 5, inventoryCost: 10500, lastSaleDate: '2026-11-07', ...over });
+  beforeEach(() => {
+    turnoverState.data = {
+      from: '2026-08-11', to: '2026-11-09', days: 91,
+      highest: [item({}), item({ productId: 2, code: 'P-002', name: 'Torta Integral', content: '100gr', unitsSold: 30, rotation: 6, stock: -1, daysOfInventory: null })],
+      lowest: [item({ productId: 3, code: 'P-003', name: 'Alogen', content: '1LT', unitsSold: 0, stock: 6, rotation: 0, daysOfInventory: null, inventoryCost: 272160, lastSaleDate: null })],
+      productsWithSales: 237, productsWithoutSales: 50, withoutSalesInventoryCost: 2970101,
+    };
+  });
+
+  it('muestra las dos listas: mayor y menor rotación', () => {
+    wrap(<AuditTurnoverPage />);
+    const high = within(screen.getByTestId('table-audit-turnover-highest')).getAllByRole('row').slice(1);
+    const low = within(screen.getByTestId('table-audit-turnover-lowest')).getAllByRole('row').slice(1);
+    expect(high).toHaveLength(2);
+    expect(high[0]).toHaveTextContent('Pan de Coco');
+    expect(high[0]).toHaveTextContent('18x');
+    expect(high[1]).toHaveTextContent('Torta Integral x 100gr');
+    expect(low).toHaveLength(1);
+    expect(low[0]).toHaveTextContent('Alogen x 1LT');
+    expect(low[0]).toHaveTextContent('Sin ventas');
+  });
+
+  it('resume cuántos productos con existencia no se vendieron y su valor al costo', () => {
+    wrap(<AuditTurnoverPage />);
+    expect(screen.getByTestId('text-audit-turnover-nosales')).toHaveTextContent('50 productos con existencia no tuvieron ventas');
+    expect(screen.getByText(/2\.970\.101/)).toBeInTheDocument();
+  });
+
+  it('pide los últimos 90 días y 15 productos por lista', () => {
+    wrap(<AuditTurnoverPage />);
+    const params = turnoverHook.mock.calls[0][0];
+    expect(params.limit).toBe(15);
+    expect(params.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(params.to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('muestra un mensaje cuando falla la carga', () => {
+    turnoverState.data = undefined; turnoverState.isError = true;
+    wrap(<AuditTurnoverPage />);
+    expect(screen.getByText(/No pudimos cargar el reporte de rotación/i)).toBeInTheDocument();
   });
 });

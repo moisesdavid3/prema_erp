@@ -870,6 +870,43 @@ paths:
                 $ref: "#/components/schemas/AuditTopProducts"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /audit/product-turnover:
+    get:
+      operationId: getAuditProductTurnover
+      tags: [audit]
+      summary: Auditoría - productos con mayor y menor rotación de la empresa activa
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Fecha inicial (YYYY-MM-DD, hora de Colombia). Por defecto, 90 días atrás.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Fecha final (YYYY-MM-DD, hora de Colombia). Por defecto, hoy.
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          required: false
+          description: Cantidad de productos por lista (1 a 100, por defecto 15).
+          schema:
+            type: number
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Productos ordenados por rotación
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditProductTurnover"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /stockouts:
     get:
       operationId: listStockouts
@@ -1989,6 +2026,68 @@ components:
           type: number
           description: Ventas del producto registradas con costo 0 en el período.
       required: [productId, code, name, content, unitsSold, revenue, cost, profit, marginPercent, revenueWithoutCost]
+    AuditTurnoverProduct:
+      type: object
+      properties:
+        productId:
+          type: number
+        code:
+          type: ["string", "null"]
+        name:
+          type: string
+        content:
+          type: ["string", "null"]
+        unitsSold:
+          type: number
+          description: Unidades vendidas en el período.
+        stock:
+          type: number
+          description: Existencia actual.
+        averageStock:
+          type: number
+          description: Promedio entre la existencia al inicio y al final del período.
+        rotation:
+          type: number
+          description: Veces que rotó el inventario en el período (unidades vendidas ÷ existencia promedio).
+        unitsPerDay:
+          type: number
+        daysOfInventory:
+          type: ["number", "null"]
+          description: Días que alcanza la existencia actual al ritmo de venta del período. Nulo si no hubo ventas.
+        inventoryCost:
+          type: number
+          description: Existencia actual valorada al costo.
+        lastSaleDate:
+          type: ["string", "null"]
+          description: Fecha de la última venta registrada (YYYY-MM-DD), aunque sea anterior al período.
+      required: [productId, code, name, content, unitsSold, stock, averageStock, rotation, unitsPerDay, daysOfInventory, inventoryCost, lastSaleDate]
+    AuditProductTurnover:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        days:
+          type: number
+        highest:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditTurnoverProduct"
+        lowest:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditTurnoverProduct"
+        productsWithSales:
+          type: number
+          description: Productos activos con ventas en el período.
+        productsWithoutSales:
+          type: number
+          description: Productos activos con existencia y sin ventas en el período.
+        withoutSalesInventoryCost:
+          type: number
+          description: Valor al costo de la existencia de los productos sin ventas en el período.
+      required: [from, to, days, highest, lowest, productsWithSales, productsWithoutSales, withoutSalesInventoryCost]
     AuditTopProducts:
       type: object
       properties:
