@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, eq, sql } from "drizzle-orm";
-import { getDb, saleItemsTable, salesTable } from "@workspace/db";
+import { getDb, productsTable, saleItemsTable, salesTable } from "@workspace/db";
 import { GetAuditSalesByMonthResponse, GetAuditTopProductsResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireCompany } from "../middlewares/requireCompany";
@@ -10,6 +10,13 @@ const router: IRouter = Router();
 router.use("/audit", requireAuth, requireCompany);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Las ventas viejas guardaron el nombre ya con el contenido («Pan x 400gr»); se quita para no mostrarlo dos veces. */
+function stripContentSuffix(name: string, content: string | null): string {
+  if (!content) return name;
+  const suffix = ` x ${content}`.toLowerCase();
+  return name.toLowerCase().endsWith(suffix) ? name.slice(0, name.length - suffix.length) : name;
+}
 
 /** Lee ?from y ?to (YYYY-MM-DD, hora de Colombia) y devuelve el rango o un mensaje de error. */
 function parseRange(query: Record<string, unknown>): { from?: Date; to?: Date } | { error: string } {
@@ -111,6 +118,9 @@ router.get("/audit/top-products", async (req, res): Promise<void> => {
       name: sql<string>`max(${saleItemsTable.productName})`,
       code: sql<string | null>`max(${saleItemsTable.productCode})`,
       content: sql<string | null>`max(${saleItemsTable.productContent})`,
+      currentName: sql<string | null>`max(${productsTable.name})`,
+      currentCode: sql<string | null>`max(${productsTable.code})`,
+      currentContent: sql<string | null>`max(${productsTable.content})`,
       unitsSold: sql<number>`coalesce(sum(${saleItemsTable.quantity}), 0)::bigint`,
       revenue: sql<number>`coalesce(sum(${saleItemsTable.subtotal}), 0)::bigint`,
       cost: sql<number>`coalesce(sum(${saleItemsTable.unitCost} * ${saleItemsTable.quantity}), 0)::bigint`,
@@ -119,6 +129,7 @@ router.get("/audit/top-products", async (req, res): Promise<void> => {
     })
     .from(saleItemsTable)
     .innerJoin(salesTable, sql`${saleItemsTable.saleId} = ${salesTable.id}`)
+    .leftJoin(productsTable, sql`${saleItemsTable.productId} = ${productsTable.id}`)
     .where(saleWhere(req.companyId!, range))
     .groupBy(saleItemsTable.productId);
 
@@ -132,9 +143,10 @@ router.get("/audit/top-products", async (req, res): Promise<void> => {
     const profit = revenue - cost;
     return {
       productId: r.productId,
-      code: r.code || null,
-      name: r.name,
-      content: r.content || null,
+      // Se usa el nombre vigente del producto; si ya no existe, el que quedó guardado en la venta.
+      code: r.currentCode || r.code || null,
+      name: r.currentName ?? stripContentSuffix(r.name, r.content),
+      content: (r.currentName != null ? r.currentContent : r.content) || null,
       unitsSold: units,
       revenue,
       cost,
